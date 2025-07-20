@@ -1,24 +1,36 @@
 cmake_minimum_required(VERSION 3.18)
 project(CUDA_RayTracing LANGUAGES CXX CUDA)
 
-# Set C++ and CUDA standards
+# Using C++ and CUDA 14 for compatibility
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CUDA_STANDARD 14)
 
-# Path for the nvidia toolkit compiler
-set(CMAKE_CUDA_COMPILER "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.9/bin/nvcc.exe")
+# CUDA Toolkit path (change if using a different version or location)
+set(CUDAToolkit_ROOT "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.9")
 
-# Target architecture (Ampere/Ada Lovelace - RTX 4090)
-# 86 for wide support; 89 for RTX 30/40 series cards
+# Point CMake directly to NVCC to avoid detection issues
+set(CMAKE_CUDA_COMPILER "${CUDAToolkit_ROOT}/bin/nvcc.exe")
+
+# Add CUDA include path to fix missing cuda_runtime.h
+include_directories("${CUDAToolkit_ROOT}/include")
+
+# Targeting RTX 40xx / Ampere and up (sm_89)
 set(CMAKE_CUDA_ARCHITECTURES 89)
 
-# Optional: for faster link stages and device-side linking
+# Enable separate compilation for CUDA files
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
-# Create executable from a .cu files
-add_executable(CUDA_RayTracing Test/main.cu)
+# Define the macro with project root path for runtime use (to make file paths portable)
+add_compile_definitions(PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
-# Optional: for indexing CUDA code properly
+# Main raytracer executable (the core renderer)
+add_executable(CUDA_RayTracing src/raytracer.cu)
 set_target_properties(CUDA_RayTracing PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON
+)
+
+# Optional test kernel file if needed for experiments
+add_executable(CUDA_RayTracing_Test Test/main.cu)
+set_target_properties(CUDA_RayTracing_Test PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
 )
