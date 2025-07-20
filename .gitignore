@@ -1,6 +1,44 @@
+# CUDA intermediate files
 *.i
 *.ii
 *.gpu
 *.ptx
 *.cubin
 *.fatbin
+
+# Build directories
+cmake-build-*/
+build/
+out/
+bin/
+
+# CMake-generated files
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+install_manifest.txt
+
+# CLion project files
+.idea/
+*.iml
+
+# Executables and object files
+*.exe
+*.out
+*.obj
+*.o
+*.log
+
+# VS-related files (if you use VS for debugging/profiling)
+*.sln
+*.vcxproj*
+*.user
+*.suo
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Editor temp files
+*.swp
