@@ -24,7 +24,15 @@ set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 add_compile_definitions(PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Main raytracer executable (the core renderer)
-add_executable(CUDA_RayTracing src/raytracer.cu)
+add_executable(CUDA_RayTracing src/raytracer.cu
+        include/vec3.cuh
+        include/ray.cuh
+        include/sphere.cuh
+        include/scene.cuh
+        include/raytrace.cuh
+        include/raytrace.cuh
+        src/main.cu
+        include/plane.cuh)
 set_target_properties(CUDA_RayTracing PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
 )

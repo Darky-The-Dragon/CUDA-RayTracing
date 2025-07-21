@@ -1,70 +1,10 @@
-#include <cstdio>
-#include <cstdlib>
-#include <fstream>
+#include "../include/vec3.cuh"
+#include "../include/ray.cuh"
+#include "../include/sphere.cuh"
+#include "../include/plane.cuh"
+#include "../include/raytrace.cuh"
 
-// CUDA type for RGB triplet
-#include <cuda_runtime.h>
-#include <iostream>
-
-const int WIDTH = 512;
-const int HEIGHT = 512;
-
-// Basic 3D vector struct to represent points and directions
-struct Vec3 {
-    float x, y, z;
-
-    __host__ __device__ Vec3() : x(0), y(0), z(0) {}
-    __host__ __device__ Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
-
-    __host__ __device__ Vec3 operator+(const Vec3& v) const {
-        return Vec3(x + v.x, y + v.y, z + v.z);
-    }
-
-    __host__ __device__ Vec3 operator-(const Vec3& v) const {
-        return Vec3(x - v.x, y - v.y, z - v.z);
-    }
-
-    __host__ __device__ Vec3 operator-() const {
-        return Vec3(-x, -y, -z);
-    }
-
-    __host__ __device__ Vec3 operator*(float s) const {
-        return Vec3(x * s, y * s, z * s);
-    }
-
-    __host__ __device__ float dot(const Vec3& v) const {
-        return x * v.x + y * v.y + z * v.z;
-    }
-
-    __host__ __device__ Vec3 normalize() const {
-        float len = sqrtf(x * x + y * y + z * z);
-        return Vec3(x / len, y / len, z / len);
-    }
-};
-
-
-// Simple ray struct made of origin and direction
-struct Ray {
-    Vec3 origin;
-    Vec3 direction;
-
-    __host__ __device__ Ray(const Vec3& o, const Vec3& d) : origin(o), direction(d) {}
-};
-
-// Basic sphere intersection test
-// Returns true if ray hits the sphere, stores hit distance in 't'
-__device__ bool hitSphere(const Vec3& center, float radius, const Ray& ray, float& t) {
-    Vec3 oc = ray.origin - center;
-    float a = ray.direction.dot(ray.direction);
-    float b = 2.0f * oc.dot(ray.direction);
-    float c = oc.dot(oc) - radius * radius;
-    float discriminant = b * b - 4 * a * c;
-
-    if (discriminant < 0.0f) return false;
-    t = (-b - sqrtf(discriminant)) / (2.0f * a);
-    return t > 0.0f;
-}
-
+// CUDA kernel that renders a scene with one sphere and multiple planes (Cornell Box)
 __global__ void raytrace(uchar3* buffer, int width, int height) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -73,92 +13,61 @@ __global__ void raytrace(uchar3* buffer, int width, int height) {
 
     int idx = y * width + x;
 
-    // Set up a simple camera looking at -Z
-    float aspectRatio = float(width) / float(height);
+    // --- Camera setup ---
+    const float aspectRatio = float(width) / float(height);
     float u = (float(x) / width) * 2.0f - 1.0f;
     float v = (float(y) / height) * 2.0f - 1.0f;
     u *= aspectRatio;
 
-    Vec3 origin(0.0f, 0.0f, 0.0f);  // camera position
-    Vec3 direction = Vec3(u, v, -1.0f).normalize();  // project pixel to -Z plane
-    Ray ray(origin, direction);
+    const Vec3 cameraOrigin(0.0f, 0.0f, 0.0f);
+    const Vec3 rayDirection = Vec3(u, v, -1.0f).normalize();
+    const Ray ray(cameraOrigin, rayDirection);
 
-    // Define the sphere (centered in front of camera)
-    Vec3 sphereCenter(0.0f, 0.0f, -3.0f);
-    float sphereRadius = 0.75f;
-    float t;
+    // --- Scene setup ---
 
-    // If the ray hits the sphere, make it red. Otherwise, sky blue.
-    if (hitSphere(sphereCenter, sphereRadius, ray, t)) {
-        // Compute point of intersection
-        Vec3 hitPoint = ray.origin + ray.direction * t;
+    // Sphere in center
+    const Sphere sphere(Vec3(0.0f, -0.25f, -3.5f), 0.5f, make_uchar3(255, 255, 0)); // yellow
 
-        // Compute normal at hit point
-        Vec3 normal = (hitPoint - sphereCenter).normalize();
+    // Cornell Box planes
+    const Plane leftWall(Vec3(-1.0f, 0.0f, -3.0f),   Vec3(1.0f, 0.0f, 0.0f),  make_uchar3(255, 0, 0));   // red
+    const Plane rightWall(Vec3(1.0f, 0.0f, -3.0f),   Vec3(-1.0f, 0.0f, 0.0f), make_uchar3(0, 255, 0));   // green
+    const Plane floor(Vec3(0.0f, -1.0f, -3.0f),      Vec3(0.0f, 1.0f, 0.0f),  make_uchar3(255, 255, 255)); // white
+    const Plane ceiling(Vec3(0.0f, 1.0f, -3.0f),     Vec3(0.0f, -1.0f, 0.0f), make_uchar3(255, 255, 255)); // white
+    const Plane backWall(Vec3(0.0f, 0.0f, -5.0f),    Vec3(0.0f, 0.0f, 1.0f),  make_uchar3(255, 255, 255)); // white
 
-        // Simple directional light from above-left
+    Plane planes[] = { leftWall, rightWall, floor, ceiling, backWall };
+
+    // --- Ray hit logic ---
+    float closestHit = 1e20f;
+    uchar3 finalColor = make_uchar3(135, 206, 235); // sky blue default
+
+    // Check sphere intersection
+    float sphereT;
+    if (sphere.intersect(ray.origin, ray.direction, sphereT) && sphereT < closestHit) {
+        closestHit = sphereT;
+
+        // Lambert shading
+        Vec3 hitPoint = ray.at(sphereT);
+        Vec3 normal = (hitPoint - sphere.center).normalize();
         Vec3 lightDir = Vec3(-1.0f, -1.0f, -1.0f).normalize();
-
-        // Lambert shading: brightness = dot(normal, light)
         float brightness = fmaxf(normal.dot(-lightDir), 0.0f);
 
-        // Final shaded color (red base)
-        unsigned char r = static_cast<unsigned char>(255.0f * brightness);
-        unsigned char g = static_cast<unsigned char>(32.0f * brightness);
-        unsigned char b = static_cast<unsigned char>(32.0f * brightness);
-
-        buffer[idx] = make_uchar3(r, g, b);
-    } else {
-        // background color (unchanged)
-        buffer[idx] = make_uchar3(135, 206, 235);
+        finalColor = make_uchar3(
+            sphere.color.x * brightness,
+            sphere.color.y * brightness,
+            sphere.color.z * brightness
+        );
     }
 
-}
-
-
-int main() {
-    size_t image_size = WIDTH * HEIGHT * sizeof(uchar3);
-
-    // Allocate buffer on GPU
-    uchar3* d_buffer;
-    cudaMalloc(&d_buffer, image_size);
-
-    // Define thread layout (16x16 blocks)
-    dim3 block(16, 16);
-    dim3 grid((WIDTH + block.x - 1) / block.x, (HEIGHT + block.y - 1) / block.y);
-
-    // Launch kernel
-    raytrace<<<grid, block>>>(d_buffer, WIDTH, HEIGHT);
-    cudaDeviceSynchronize();
-
-    // Copy result to CPU
-    uchar3* h_buffer = (uchar3*)malloc(image_size);
-    cudaMemcpy(h_buffer, d_buffer, image_size, cudaMemcpyDeviceToHost);
-
-    // Save to PPM file
-    std::string outputPath = std::string(PROJECT_SOURCE_DIR) + "/output/output.ppm";
-    std::ofstream out(outputPath);
-    if (!out.is_open()) {
-        std::cerr << "Failed to open output/output.ppm for writing!" << std::endl;
-        return 1;
-    }
-    out << "P3\n" << WIDTH << " " << HEIGHT << "\n255\n";
-
-    for (int y = 0; y < HEIGHT; y++) {
-        for (int x = 0; x < WIDTH; x++) {
-            int idx = y * WIDTH + x;
-            uchar3 pixel = h_buffer[idx];
-            out << (int)pixel.x << " " << (int)pixel.y << " " << (int)pixel.z << " ";
+    // Check plane intersections
+    for (int i = 0; i < 5; ++i) {
+        float planeT;
+        if (planes[i].intersect(ray, planeT) && planeT < closestHit) {
+            closestHit = planeT;
+            finalColor = planes[i].surfaceColor; // Flat color, no shading for now
         }
-        out << "\n";
     }
 
-    out.close();
-
-    // Free memory
-    cudaFree(d_buffer);
-    free(h_buffer);
-
-    printf("Image saved to output/output.ppm\n");
-    return 0;
+    // Write final pixel color
+    buffer[idx] = finalColor;
 }
