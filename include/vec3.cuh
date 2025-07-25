@@ -43,6 +43,15 @@ struct Vec3 {
         return Vec3(x / scalar, y / scalar, z / scalar);
     }
 
+    // Cross product function
+    __host__ __device__ Vec3 cross(const Vec3& other) const {
+        return Vec3(
+            y * other.z - z * other.y,
+            z * other.x - x * other.z,
+            x * other.y - y * other.x
+        );
+    }
+
     // Dot product
     __host__ __device__ float dot(const Vec3& v) const {
         return x * v.x + y * v.y + z * v.z;

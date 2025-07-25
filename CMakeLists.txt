@@ -32,7 +32,11 @@ add_executable(CUDA_RayTracing src/raytracer.cu
         include/raytrace.cuh
         include/raytrace.cuh
         src/main.cu
-        include/plane.cuh)
+        include/plane.cuh
+        include/quad.cuh
+        src/cpu_raytracer.cu
+        include/cpu_raytracer.cuh
+        include/scene_setup.cuh)
 set_target_properties(CUDA_RayTracing PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
 )

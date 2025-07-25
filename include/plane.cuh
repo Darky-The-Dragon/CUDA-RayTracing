@@ -42,7 +42,7 @@ struct Plane {
 
     // Normal vector getter
     __host__ __device__
-    Vec3 getNormal() const {
+    Vec3 getNormal(const Vec3&) const {
         return normalVector;
     }
 };
