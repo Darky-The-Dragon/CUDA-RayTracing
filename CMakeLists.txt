@@ -35,6 +35,7 @@ set(HEADERS
         include/scene_setup.cuh
         include/raytrace.cuh
         include/cpu_raytracer.cuh
+        include/material.cuh
 )
 
 # Source files
@@ -56,7 +57,7 @@ set_target_properties(CUDA_RayTracing PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 # ------------------------------
 option(BUILD_TEST "Build the CUDA test program" ON)
 
-if(BUILD_TEST)
+if (BUILD_TEST)
     add_executable(CUDA_RayTracing_Test Test/main.cu)
     set_target_properties(CUDA_RayTracing_Test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-endif()
+endif ()

@@ -2,24 +2,31 @@
 #define SPHERE_CUH
 
 #include "vec3.cuh"
+#include "material.cuh"
 
 // Represents a sphere with a center, radius, and color
-struct Sphere {
+struct Sphere
+{
     Vec3 center;
     float radius;
-    uchar3 color;
+    Material material;
 
     __host__ __device__
-    Sphere() : center(), radius(1.0f), color(make_uchar3(255, 255, 255)) {}
+    Sphere() : center(), radius(1.0f), material()
+    {
+    }
 
     __host__ __device__
-    Sphere(const Vec3& center, float radius, uchar3 color)
-        : center(center), radius(radius), color(color) {}
+    Sphere(const Vec3& center, float radius, const Material& m)
+        : center(center), radius(radius), material(m)
+    {
+    }
 
     // Performs ray-sphere intersection.
     // Returns true if the ray hits the sphere and sets outDistance.
     __host__ __device__
-    bool intersect(const Vec3& rayOrigin, const Vec3& rayDirection, float& outDistance) const {
+    bool intersect(const Vec3& rayOrigin, const Vec3& rayDirection, float& outDistance) const
+    {
         // Vector from ray origin to sphere center
         const Vec3 originToCenter = rayOrigin - center;
 
@@ -36,7 +43,8 @@ struct Sphere {
         const float t = (-b - sqrtDiscriminant) / (2.0f * a);
 
         // Accept only positive intersections (in front of the ray origin)
-        if (t > 0.001f) {
+        if (t > 0.001f)
+        {
             outDistance = t;
             return true;
         }

@@ -4,13 +4,14 @@
 #include <string>
 #include <chrono>
 
-#include "../include/raytrace.cuh"
-#include "../include/cpu_raytracer.cuh"
+#include "raytrace.cuh"
+#include "cpu_raytracer.cuh"
 
 #define WIDTH 1024
 #define HEIGHT 1024
 
-int main() {
+int main()
+{
     size_t image_size = WIDTH * HEIGHT * sizeof(uchar3);
 
     // ---------------- GPU Raytracer ----------------
@@ -24,7 +25,7 @@ int main() {
     std::cout << "[GPU DEBUG] Threads per block: " << threadsPerBlock.x * threadsPerBlock.y << "\n";
     std::cout << "[GPU DEBUG] Total blocks: " << blocksPerGrid.x * blocksPerGrid.y << "\n";
     std::cout << "[GPU DEBUG] Total threads: "
-              << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
+        << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
 
     // GPU timing
     cudaEvent_t start, stop;
@@ -49,7 +50,8 @@ int main() {
     std::ofstream gpuOut(gpuPath);
     gpuOut << "P3\n" << WIDTH << " " << HEIGHT << "\n255\n";
     for (int y = 0; y < HEIGHT; ++y)
-        for (int x = 0; x < WIDTH; ++x) {
+        for (int x = 0; x < WIDTH; ++x)
+        {
             int idx = y * WIDTH + x;
             uchar3 px = h_gpu[idx];
             gpuOut << (int)px.x << " " << (int)px.y << " " << (int)px.z << " ";
@@ -72,7 +74,8 @@ int main() {
     std::ofstream cpuOut(cpuPath);
     cpuOut << "P3\n" << WIDTH << " " << HEIGHT << "\n255\n";
     for (int y = 0; y < HEIGHT; ++y)
-        for (int x = 0; x < WIDTH; ++x) {
+        for (int x = 0; x < WIDTH; ++x)
+        {
             int idx = y * WIDTH + x;
             uchar3 px = h_cpu[idx];
             cpuOut << (int)px.x << " " << (int)px.y << " " << (int)px.z << " ";

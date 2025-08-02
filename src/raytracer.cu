@@ -1,10 +1,12 @@
-#include "../include/vec3.cuh"
-#include "../include/ray.cuh"
-#include "../include/quad.cuh"
-#include "../include/scene_setup.cuh"
-#include "../include/raytrace.cuh"
+#include "material.cuh"
+#include "vec3.cuh"
+#include "ray.cuh"
+#include "quad.cuh"
+#include "scene_setup.cuh"
+#include "raytrace.cuh"
 
-__global__ void raytrace(uchar3* buffer, int width, int height) {
+__global__ void raytrace(uchar3* buffer, int width, int height)
+{
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= width || y >= height) return;
@@ -13,7 +15,7 @@ __global__ void raytrace(uchar3* buffer, int width, int height) {
     Ray ray = generateCameraRay(x, y, width, height);
 
     // Default background
-    uchar3 color = Colors::LightBlue();
+    Material finalMaterial;
     float closestT = 1e20f;
 
     // Cornell box
@@ -21,11 +23,13 @@ __global__ void raytrace(uchar3* buffer, int width, int height) {
     buildCornellBox(quads);
 
     // Check intersection with quads
-    for (int i = 0; i < SCENE_QUAD_COUNT; ++i) {
+    for (int i = 0; i < SCENE_QUAD_COUNT; ++i)
+    {
         float tHit;
-        if (quads[i].intersect(ray, tHit) && tHit < closestT) {
+        if (quads[i].intersect(ray, tHit) && tHit < closestT)
+        {
             closestT = tHit;
-            color = quads[i].color;
+            finalMaterial = quads[i].material;
         }
     }
 
