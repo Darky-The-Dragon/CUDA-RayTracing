@@ -25,7 +25,7 @@ __host__ void cpu_raytrace(uchar3* buffer, int width, int height)
                 if (quads[i].intersect(ray, tHit) && tHit < closestT)
                 {
                     closestT = tHit;
-                    color = quads[i].color;
+                    color = quads[i].material.color;
                 }
             }
 

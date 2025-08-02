@@ -16,6 +16,7 @@ __global__ void raytrace(uchar3* buffer, int width, int height)
 
     // Default background
     Material finalMaterial;
+    finalMaterial.color = Colors::LightBlue();
     float closestT = 1e20f;
 
     // Cornell box
@@ -33,5 +34,6 @@ __global__ void raytrace(uchar3* buffer, int width, int height)
         }
     }
 
+    uchar3 color = finalMaterial.color;
     buffer[idx] = color;
 }

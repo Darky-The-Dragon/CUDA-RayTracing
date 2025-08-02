@@ -3,6 +3,7 @@
 
 #include "vec3.cuh"
 #include "ray.cuh"
+#include "material.cuh"
 #include <cuda_runtime.h>
 
 struct Quad
@@ -11,14 +12,14 @@ struct Quad
     Vec3 spanU; // First edge vector (e.g., horizontal direction)
     Vec3 spanV; // Second edge vector (e.g., vertical direction)
     Vec3 normal; // Surface normal (computed from cross product of spanU and spanV)
-    uchar3 color; // Surface color
+    Material material; // Surface material
 
-    __host__ __device__ Quad() : color(make_uchar3(0, 0, 0))
+    __host__ __device__ Quad() : material()
     {
     }
 
-    __host__ __device__ Quad(const Vec3& position_, const Vec3& spanU_, const Vec3& spanV_, const uchar3& color_)
-        : position(position_), spanU(spanU_), spanV(spanV_), color(color_)
+    __host__ __device__ Quad(const Vec3& position_, const Vec3& spanU_, const Vec3& spanV_, const Material& material_)
+        : position(position_), spanU(spanU_), spanV(spanV_),  material(material_)
     {
         normal = spanU.cross(spanV).normalize();
     }

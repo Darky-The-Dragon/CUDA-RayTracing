@@ -6,6 +6,8 @@
 #include "quad.cuh"
 #include <cuda_runtime.h>
 
+#include "material.cuh"
+
 // Constants
 #define SCENE_QUAD_COUNT 6
 
@@ -32,19 +34,19 @@ __host__ __device__ inline void buildCornellBox(Quad* quads, const float boxSize
 
     // Cornell Box (sits on top of the ground)
     quads[0] = Quad(Vec3(-half, -half, -half) + offset, Vec3(0, boxSize, 0), Vec3(0, 0, boxSize),
-                    Colors::Red()); // Left
+                    Materials::RedDiffuse()); // Left
     quads[1] = Quad(Vec3(half, -half, -half) + offset, Vec3(0, boxSize, 0), Vec3(0, 0, boxSize),
-                    Colors::Green()); // Right
+                    Materials::GreenDiffuse()); // Right
     quads[2] = Quad(Vec3(-half, -half, -half) + offset, Vec3(boxSize, 0, 0), Vec3(0, 0, boxSize),
-                    Colors::White()); // Floor
+                    Materials::WhiteDiffuse()); // Floor
     quads[3] = Quad(Vec3(-half, half, -half) + offset, Vec3(boxSize, 0, 0), Vec3(0, 0, boxSize),
-                    Colors::White()); // Ceiling
+                    Materials::WhiteDiffuse()); // Ceiling
     quads[4] = Quad(Vec3(-half, -half, -half) + offset, Vec3(boxSize, 0, 0), Vec3(0, boxSize, 0),
-                    Colors::White()); // Back
+                    Materials::WhiteDiffuse()); // Back
 
     // Green Ground Plane (Y = groundY)
     quads[5] = Quad(Vec3(-20.0f, groundY, -20.0f), Vec3(40.0f, 0.0f, 0.0f), Vec3(0.0f, 0.0f, 40.0f),
-                    Colors::LightGray());
+                    Materials::LightGrayDiffuse());
 }
 
 // Shared camera logic
