@@ -10,18 +10,17 @@ __global__ void raytrace(uchar3* buffer, int width, int height) {
     if (x >= width || y >= height) return;
 
     int idx = y * width + x;
-
-    // Generate ray from camera
     Ray ray = generateCameraRay(x, y, width, height);
 
-    // --- Cornell Box Setup ---
-    Quad quads[SCENE_QUAD_COUNT];
-    buildCornellBox(quads);  // uses default size = 2.0f
-
-    // --- Ray hit loop ---
+    // Default background
+    uchar3 color = Colors::LightBlue();
     float closestT = 1e20f;
-    uchar3 color = Colors::Black();
 
+    // Cornell box
+    Quad quads[SCENE_QUAD_COUNT];
+    buildCornellBox(quads);
+
+    // Check intersection with quads
     for (int i = 0; i < SCENE_QUAD_COUNT; ++i) {
         float tHit;
         if (quads[i].intersect(ray, tHit) && tHit < closestT) {
