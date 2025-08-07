@@ -4,8 +4,8 @@
 #include <string>
 #include <chrono>
 
-#include "raytrace.cuh"
-#include "cpu_raytracer.cuh"
+#include "../include/rendering/raytrace.cuh"
+#include "../include/rendering/cpu_raytracer.cuh"
 
 #define WIDTH 1024
 #define HEIGHT 1024

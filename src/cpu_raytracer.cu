@@ -1,7 +1,7 @@
-#include "cpu_raytracer.cuh"
-#include "scene_setup.cuh"
-#include "ray.cuh"
-#include "quad.cuh"
+#include "../include/rendering/cpu_raytracer.cuh"
+#include "../include/rendering/scene_setup.cuh"
+#include "../include/core/ray.cuh"
+#include "../include/geometry/quad.cuh"
 
 __host__ void cpu_raytrace(uchar3* buffer, int width, int height)
 {
