@@ -1,91 +1,121 @@
+// main.cu — GPU vs CPU raytracing entry point
+// Renders once on GPU, once on CPU, saves both to /output, and prints timings.
+
 #include <cuda_runtime.h>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <chrono>
+#include <vector>
+
+#include <filesystem> // C++17: create_directories
+namespace fs = std::filesystem;
 
 #include "../include/rendering/raytrace.cuh"
 #include "../include/rendering/cpu_raytracer.cuh"
 
-#define WIDTH 1024
-#define HEIGHT 1024
+// ---- Image size (tweak freely)
+static constexpr int WIDTH  = 1024;
+static constexpr int HEIGHT = 1024;
+
+// ---- Quick CUDA error helper (keeps main readable)
+#define CUDA_CHECK(call)                                                       \
+    do {                                                                       \
+        cudaError_t err__ = (call);                                            \
+        if (err__ != cudaSuccess) {                                            \
+            std::cerr << "[CUDA ERROR] " << #call << " -> "                    \
+                      << cudaGetErrorString(err__) << "\n";                    \
+            std::exit(EXIT_FAILURE);                                           \
+        }                                                                      \
+    } while (0)
+
+// ---- Minimal PPM writer (binary P6 would be smaller; P3 is human-readable)
+static bool writePPM(const std::string& path, const uchar3* pixels, int w, int h) {
+    std::ofstream out(path);
+    if (!out.is_open()) return false;
+
+    out << "P3\n" << w << " " << h << "\n255\n";
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            const int idx = y * w + x;
+            const uchar3 px = pixels[idx];
+            out << int(px.x) << ' ' << int(px.y) << ' ' << int(px.z) << ' ';
+        }
+        out << '\n';
+    }
+    return true;
+}
 
 int main() {
-    size_t image_size = WIDTH * HEIGHT * sizeof(uchar3);
+    const size_t image_size = size_t(WIDTH) * size_t(HEIGHT) * sizeof(uchar3);
+
+    // Ensure output dir exists
+    const std::string outDir = std::string(PROJECT_SOURCE_DIR) + "/output";
+    fs::create_directories(outDir);
 
     // ---------------- GPU Raytracer ----------------
-    uchar3 *d_buffer;
-    cudaMalloc(&d_buffer, image_size);
+    uchar3* d_buffer = nullptr;
+    CUDA_CHECK(cudaMalloc(&d_buffer, image_size));
 
-    dim3 threadsPerBlock(16, 16);
-    dim3 blocksPerGrid((WIDTH + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                       (HEIGHT + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    const dim3 threadsPerBlock(16, 16);
+    const dim3 blocksPerGrid(
+        (WIDTH  + threadsPerBlock.x - 1) / threadsPerBlock.x,
+        (HEIGHT + threadsPerBlock.y - 1) / threadsPerBlock.y
+    );
 
-    std::cout << "[GPU DEBUG] Threads per block: " << threadsPerBlock.x * threadsPerBlock.y << "\n";
-    std::cout << "[GPU DEBUG] Total blocks: " << blocksPerGrid.x * blocksPerGrid.y << "\n";
+    std::cout << "[GPU DEBUG] Threads per block: " << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
+    std::cout << "[GPU DEBUG] Total blocks: " << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
     std::cout << "[GPU DEBUG] Total threads: "
-            << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
+              << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
 
-    // GPU timing
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
+    cudaEvent_t start{}, stop{};
+    CUDA_CHECK(cudaEventCreate(&start));
+    CUDA_CHECK(cudaEventCreate(&stop));
 
-    cudaEventRecord(start);
+    CUDA_CHECK(cudaEventRecord(start));
     raytrace<<<blocksPerGrid, threadsPerBlock>>>(d_buffer, WIDTH, HEIGHT);
-    cudaEventRecord(stop);
-    cudaDeviceSynchronize();
+    // Check kernel launch + sync errors explicitly
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaEventRecord(stop));
+    CUDA_CHECK(cudaEventSynchronize(stop));
 
     float gpu_ms = 0.0f;
-    cudaEventElapsedTime(&gpu_ms, start, stop);
+    CUDA_CHECK(cudaEventElapsedTime(&gpu_ms, start, stop));
     std::cout << "[TIMING] GPU raytracing took " << gpu_ms << " ms\n";
 
-    // Copy GPU result
-    uchar3 *h_gpu = (uchar3 *) malloc(image_size);
-    cudaMemcpy(h_gpu, d_buffer, image_size, cudaMemcpyDeviceToHost);
+    // Copy GPU result to host
+    std::vector<uchar3> h_gpu(WIDTH * HEIGHT);
+    CUDA_CHECK(cudaMemcpy(h_gpu.data(), d_buffer, image_size, cudaMemcpyDeviceToHost));
 
     // Save GPU image
-    std::string gpuPath = std::string(PROJECT_SOURCE_DIR) + "/output/output_gpu.ppm";
-    std::ofstream gpuOut(gpuPath);
-    gpuOut << "P3\n" << WIDTH << " " << HEIGHT << "\n255\n";
-    for (int y = 0; y < HEIGHT; ++y)
-        for (int x = 0; x < WIDTH; ++x) {
-            int idx = y * WIDTH + x;
-            uchar3 px = h_gpu[idx];
-            gpuOut << (int) px.x << " " << (int) px.y << " " << (int) px.z << " ";
-        }
-    gpuOut.close();
-    std::cout << "[INFO] GPU image saved to: " << gpuPath << "\n";
+    const std::string gpuPath = outDir + "/output_gpu.ppm";
+    if (!writePPM(gpuPath, h_gpu.data(), WIDTH, HEIGHT)) {
+        std::cerr << "[ERROR] Failed to write GPU image to: " << gpuPath << "\n";
+    } else {
+        std::cout << "[INFO] GPU image saved to: " << gpuPath << "\n";
+    }
 
     // ---------------- CPU Raytracer ----------------
-    uchar3 *h_cpu = (uchar3 *) malloc(image_size);
+    std::vector<uchar3> h_cpu(WIDTH * HEIGHT);
 
     std::cout << "\n[CPU DEBUG] Starting CPU raytracing...\n";
-    auto cpuStart = std::chrono::high_resolution_clock::now();
-    cpu_raytrace(h_cpu, WIDTH, HEIGHT);
-    auto cpuEnd = std::chrono::high_resolution_clock::now();
-    auto cpuDuration = std::chrono::duration<double, std::milli>(cpuEnd - cpuStart).count();
-    std::cout << "[TIMING] CPU raytracing took " << cpuDuration << " ms\n";
+    const auto cpuStart = std::chrono::high_resolution_clock::now();
+    cpu_raytrace(h_cpu.data(), WIDTH, HEIGHT);
+    const auto cpuEnd = std::chrono::high_resolution_clock::now();
+    const double cpuMs = std::chrono::duration<double, std::milli>(cpuEnd - cpuStart).count();
+    std::cout << "[TIMING] CPU raytracing took " << cpuMs << " ms\n";
 
-    // Save CPU image
-    std::string cpuPath = std::string(PROJECT_SOURCE_DIR) + "/output/output_cpu.ppm";
-    std::ofstream cpuOut(cpuPath);
-    cpuOut << "P3\n" << WIDTH << " " << HEIGHT << "\n255\n";
-    for (int y = 0; y < HEIGHT; ++y)
-        for (int x = 0; x < WIDTH; ++x) {
-            int idx = y * WIDTH + x;
-            uchar3 px = h_cpu[idx];
-            cpuOut << (int) px.x << " " << (int) px.y << " " << (int) px.z << " ";
-        }
-    cpuOut.close();
-    std::cout << "[INFO] CPU image saved to: " << cpuPath << "\n";
+    const std::string cpuPath = outDir + "/output_cpu.ppm";
+    if (!writePPM(cpuPath, h_cpu.data(), WIDTH, HEIGHT)) {
+        std::cerr << "[ERROR] Failed to write CPU image to: " << cpuPath << "\n";
+    } else {
+        std::cout << "[INFO] CPU image saved to: " << cpuPath << "\n";
+    }
 
     // ---------------- Cleanup ----------------
-    cudaFree(d_buffer);
-    free(h_gpu);
-    free(h_cpu);
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
+    CUDA_CHECK(cudaEventDestroy(start));
+    CUDA_CHECK(cudaEventDestroy(stop));
+    CUDA_CHECK(cudaFree(d_buffer));
 
     return 0;
 }

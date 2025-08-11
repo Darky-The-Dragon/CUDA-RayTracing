@@ -1,49 +1,61 @@
 #ifndef SPHERE_CUH
 #define SPHERE_CUH
 
+#include <cmath>              // sqrtf
 #include "core/vec3.cuh"
 #include "core/material.cuh"
 
-// Represents a sphere with a center, radius, and color
+/**
+ * @brief Represents a sphere with a center, radius, and surface material.
+ *
+ * Used as a simple geometric primitive for ray tracing.
+ */
 struct Sphere {
-    Vec3 center;
-    float radius;
-    Material material;
+    Vec3 center; ///< Sphere center in world space
+    float radius; ///< Sphere radius (must be > 0)
+    Material material; ///< Surface material
 
+    /// @brief Default constructor (unit sphere at origin, default material).
     __host__ __device__
-    Sphere() : center(), radius(1.0f), material() {
+    Sphere() : center(0.0f), radius(1.0f), material() {
     }
 
+    /// @brief Fully parameterized constructor.
     __host__ __device__
     Sphere(const Vec3 &center, float radius, const Material &m)
         : center(center), radius(radius), material(m) {
     }
 
-    // Performs ray-sphere intersection.
-    // Returns true if the ray hits the sphere and sets outDistance.
+    /**
+     * @brief Ray–sphere intersection.
+     *
+     * Solves the quadratic equation for intersection points:
+     *   |O + tD - C|² = r²
+     *
+     * @param rayOrigin    Starting point of the ray.
+     * @param rayDirection Direction of the ray (should be normalized for stable t values).
+     * @param outDistance  Output parameter — smallest positive hit distance.
+     * @return true if the ray hits the sphere in front of the origin.
+     */
     __host__ __device__
     bool intersect(const Vec3 &rayOrigin, const Vec3 &rayDirection, float &outDistance) const {
-        // Vector from ray origin to sphere center
-        const Vec3 originToCenter = rayOrigin - center;
+        const Vec3 oc = rayOrigin - center;
 
-        // Coefficients of the quadratic equation
-        const float a = rayDirection.dot(rayDirection); // usually 1 if normalized
-        const float b = 2.0f * originToCenter.dot(rayDirection);
-        const float c = originToCenter.dot(originToCenter) - radius * radius;
+        const float a = rayDirection.dot(rayDirection); // =1 if normalized
+        const float b = 2.0f * oc.dot(rayDirection);
+        const float c = oc.dot(oc) - radius * radius;
 
-        const float discriminant = b * b - 4 * a * c;
-
+        const float discriminant = b * b - 4.0f * a * c;
         if (discriminant < 0.0f) return false;
 
-        const float sqrtDiscriminant = sqrtf(discriminant);
-        const float t = (-b - sqrtDiscriminant) / (2.0f * a);
+        const float sqrtDisc = sqrtf(discriminant);
+        const float t = (-b - sqrtDisc) / (2.0f * a);
 
-        // Accept only positive intersections (in front of the ray origin)
         if (t > 0.001f) {
+            // ignore hits extremely close to origin
             outDistance = t;
             return true;
         }
-
         return false;
     }
 };
