@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.18)
 project(CUDA_RayTracing LANGUAGES CXX CUDA)
 
-# Use C++14 and CUDA 14 for compatibility
+# Use C++17 and CUDA 14 for compatibility
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD 17)
 
 # Automatically locate the CUDA toolkit (works on Linux, macOS, Windows)
 find_package(CUDAToolkit REQUIRED)
@@ -63,5 +63,6 @@ option(BUILD_TEST "Build the CUDA test program" ON)
 
 if (BUILD_TEST)
     add_executable(CUDA_RayTracing_Test Test/main.cu)
+    target_include_directories(CUDA_RayTracing_Test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
     set_target_properties(CUDA_RayTracing_Test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 endif ()

@@ -48,14 +48,14 @@ __host__ __device__ inline void buildCornellBox(Quad *quads, const float boxSize
 }
 
 // Shared camera logic
-__host__ __device__ inline Ray generateCameraRay(const int x, const int y, const int width, const int height) {
-    const float aspect = static_cast<float>(width) / static_cast<float>(height);
-    float screenX = (static_cast<float>(x) / width) * 2.0f - 1.0f;
-    const float screenY = (static_cast<float>(y) / height) * 2.0f - 1.0f;
-    screenX *= aspect;
-
-    const Vec3 origin(0.0f, 1.0f, 5.0f);
-    const Vec3 dir = Vec3(screenX, screenY, -1.0f).normalize();
+__host__ __device__ inline Ray generateCameraRay(int x,int y,int width,int height,float fov_deg=90.0f){
+    float aspect = (float)width/(float)height;
+    float fov = tanf(0.5f * fov_deg * 3.14159265f/180.0f);
+    float ndcX = ( (x + 0.5f) / width ) * 2.0f - 1.0f;
+    float ndcY = ( (y + 0.5f) / height ) * 2.0f - 1.0f;
+    ndcX *= aspect * fov; ndcY *= fov;
+    Vec3 origin(0.0f, 1.0f, 5.0f);
+    Vec3 dir = Vec3(ndcX, ndcY, -1.0f).normalize();
     return Ray(origin, dir);
 }
 
