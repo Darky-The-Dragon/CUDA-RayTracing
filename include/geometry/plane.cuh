@@ -4,23 +4,20 @@
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 
-struct Plane
-{
+struct Plane {
     Vec3 planePoint; // A known point on the plane
     Vec3 normalVector; // Plane's normal vector (should be normalized)
     uchar3 surfaceColor; // RGB color of the plane surface
 
     __host__ __device__
-    Plane(): surfaceColor(make_uchar3(255, 255, 255))
-    {
+    Plane() : surfaceColor(make_uchar3(255, 255, 255)) {
     }
 
     __host__ __device__
-    Plane(const Vec3& pointOnPlane, const Vec3& normal, uchar3 color)
+    Plane(const Vec3 &pointOnPlane, const Vec3 &normal, uchar3 color)
         : planePoint(pointOnPlane),
           normalVector(normal.normalize()),
-          surfaceColor(color)
-    {
+          surfaceColor(color) {
     }
 
     // Small threshold to avoid floating point precision errors
@@ -28,19 +25,16 @@ struct Plane
 
     // Ray-plane intersection test
     __host__ __device__
-    bool intersect(const Ray& ray, float& outDistance) const
-    {
+    bool intersect(const Ray &ray, float &outDistance) const {
         const float denominator = normalVector.dot(ray.direction);
 
         // If denominator is near zero, the ray is parallel to the plane
-        if (fabsf(denominator) > EPSILON)
-        {
+        if (fabsf(denominator) > EPSILON) {
             const Vec3 vectorToPlane = planePoint - ray.origin;
             const float distance = vectorToPlane.dot(normalVector) / denominator;
 
             // Only accept intersections in front of the camera
-            if (distance > EPSILON)
-            {
+            if (distance > EPSILON) {
                 outDistance = distance;
                 return true;
             }
@@ -50,8 +44,7 @@ struct Plane
 
     // Normal vector getter
     __host__ __device__
-    Vec3 getNormal(const Vec3&) const
-    {
+    Vec3 getNormal(const Vec3 &) const {
         return normalVector;
     }
 };

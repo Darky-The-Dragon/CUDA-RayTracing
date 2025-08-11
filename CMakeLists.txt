@@ -39,6 +39,7 @@ set(HEADERS
         include/rendering/light.cuh
         include/debug/debug_utils.cuh
         include/debug/debug_config.cuh
+        include/rendering/shader.cuh
 )
 
 # Source files

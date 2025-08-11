@@ -4,6 +4,6 @@
 #include <cuda_runtime.h>
 
 // Kernel declaration
-__global__ void raytrace(uchar3* buffer, int width, int height);
+__global__ void raytrace(uchar3 *buffer, int width, int height);
 
 #endif //RAYTRACE_CUH

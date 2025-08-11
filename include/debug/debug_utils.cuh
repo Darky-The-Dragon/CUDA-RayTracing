@@ -8,7 +8,7 @@
 #include <cuda_runtime.h>
 
 // Render a small glowing sphere to represent the light position
-__host__ __device__ inline bool renderLightDebug(const Ray& ray, const Light& light, uchar3& outColor) {
+__host__ __device__ inline bool renderLightDebug(const Ray &ray, const Light &light, uchar3 &outColor) {
 #if DEBUG_DRAW_LIGHT_SPHERE
     Vec3 lightPos = light.position;
     float radius = 0.1f;
@@ -28,9 +28,8 @@ __host__ __device__ inline bool renderLightDebug(const Ray& ray, const Light& li
 }
 
 
-
 // Render a line/arrow to indicate light direction (for directional/spot lights)
-__host__ __device__ inline bool renderLightDirectionRay(const Ray& ray, const Light& light, uchar3& outColor) {
+__host__ __device__ inline bool renderLightDirectionRay(const Ray &ray, const Light &light, uchar3 &outColor) {
 #if DEBUG_DRAW_LIGHT_DIRECTION
     if (light.type == POINT) return false;
 

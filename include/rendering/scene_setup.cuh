@@ -12,8 +12,7 @@
 #define SCENE_QUAD_COUNT 6
 
 // Color definitions
-namespace Colors
-{
+namespace Colors {
     __host__ __device__ inline uchar3 Red() { return make_uchar3(255, 0, 0); }
     __host__ __device__ inline uchar3 Green() { return make_uchar3(0, 255, 0); }
     __host__ __device__ inline uchar3 White() { return make_uchar3(255, 255, 255); }
@@ -25,8 +24,7 @@ namespace Colors
 
 
 // Shared scene setup
-__host__ __device__ inline void buildCornellBox(Quad* quads, const float boxSize = 4.0f, const float groundY = 3.0f)
-{
+__host__ __device__ inline void buildCornellBox(Quad *quads, const float boxSize = 4.0f, const float groundY = 3.0f) {
     const float half = boxSize * 0.5f;
 
     // Offset box vertically to sit on top of the ground
@@ -35,9 +33,9 @@ __host__ __device__ inline void buildCornellBox(Quad* quads, const float boxSize
     // Cornell Box (sits on top of the ground)
     quads[0] = Quad(Vec3(-half, -half, -half) + offset, Vec3(0, boxSize, 0), Vec3(0, 0, boxSize),
                     Materials::RedDiffuse()); // Left
-    quads[1] = Quad(Vec3(half, -half, -half) + offset, Vec3(0, boxSize, 0), Vec3(0, 0, boxSize),
+    quads[1] = Quad(Vec3(half, -half, -half) + offset, Vec3(0, 0, boxSize), Vec3(0, boxSize, 0),
                     Materials::GreenDiffuse()); // Right
-    quads[2] = Quad(Vec3(-half, -half, -half) + offset, Vec3(boxSize, 0, 0), Vec3(0, 0, boxSize),
+    quads[2] = Quad(Vec3(-half, -half, -half) + offset, Vec3(0, 0, boxSize), Vec3(boxSize, 0, 0),
                     Materials::WhiteDiffuse()); // Floor
     quads[3] = Quad(Vec3(-half, half, -half) + offset, Vec3(boxSize, 0, 0), Vec3(0, 0, boxSize),
                     Materials::WhiteDiffuse()); // Ceiling
@@ -50,8 +48,7 @@ __host__ __device__ inline void buildCornellBox(Quad* quads, const float boxSize
 }
 
 // Shared camera logic
-__host__ __device__ inline Ray generateCameraRay(const int x, const int y, const int width, const int height)
-{
+__host__ __device__ inline Ray generateCameraRay(const int x, const int y, const int width, const int height) {
     const float aspect = static_cast<float>(width) / static_cast<float>(height);
     float screenX = (static_cast<float>(x) / width) * 2.0f - 1.0f;
     const float screenY = (static_cast<float>(y) / height) * 2.0f - 1.0f;

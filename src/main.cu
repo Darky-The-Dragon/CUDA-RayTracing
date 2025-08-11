@@ -10,12 +10,11 @@
 #define WIDTH 1024
 #define HEIGHT 1024
 
-int main()
-{
+int main() {
     size_t image_size = WIDTH * HEIGHT * sizeof(uchar3);
 
     // ---------------- GPU Raytracer ----------------
-    uchar3* d_buffer;
+    uchar3 *d_buffer;
     cudaMalloc(&d_buffer, image_size);
 
     dim3 threadsPerBlock(16, 16);
@@ -25,7 +24,7 @@ int main()
     std::cout << "[GPU DEBUG] Threads per block: " << threadsPerBlock.x * threadsPerBlock.y << "\n";
     std::cout << "[GPU DEBUG] Total blocks: " << blocksPerGrid.x * blocksPerGrid.y << "\n";
     std::cout << "[GPU DEBUG] Total threads: "
-        << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
+            << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
 
     // GPU timing
     cudaEvent_t start, stop;
@@ -42,7 +41,7 @@ int main()
     std::cout << "[TIMING] GPU raytracing took " << gpu_ms << " ms\n";
 
     // Copy GPU result
-    uchar3* h_gpu = (uchar3*)malloc(image_size);
+    uchar3 *h_gpu = (uchar3 *) malloc(image_size);
     cudaMemcpy(h_gpu, d_buffer, image_size, cudaMemcpyDeviceToHost);
 
     // Save GPU image
@@ -50,17 +49,16 @@ int main()
     std::ofstream gpuOut(gpuPath);
     gpuOut << "P3\n" << WIDTH << " " << HEIGHT << "\n255\n";
     for (int y = 0; y < HEIGHT; ++y)
-        for (int x = 0; x < WIDTH; ++x)
-        {
+        for (int x = 0; x < WIDTH; ++x) {
             int idx = y * WIDTH + x;
             uchar3 px = h_gpu[idx];
-            gpuOut << (int)px.x << " " << (int)px.y << " " << (int)px.z << " ";
+            gpuOut << (int) px.x << " " << (int) px.y << " " << (int) px.z << " ";
         }
     gpuOut.close();
     std::cout << "[INFO] GPU image saved to: " << gpuPath << "\n";
 
     // ---------------- CPU Raytracer ----------------
-    uchar3* h_cpu = (uchar3*)malloc(image_size);
+    uchar3 *h_cpu = (uchar3 *) malloc(image_size);
 
     std::cout << "\n[CPU DEBUG] Starting CPU raytracing...\n";
     auto cpuStart = std::chrono::high_resolution_clock::now();
@@ -74,11 +72,10 @@ int main()
     std::ofstream cpuOut(cpuPath);
     cpuOut << "P3\n" << WIDTH << " " << HEIGHT << "\n255\n";
     for (int y = 0; y < HEIGHT; ++y)
-        for (int x = 0; x < WIDTH; ++x)
-        {
+        for (int x = 0; x < WIDTH; ++x) {
             int idx = y * WIDTH + x;
             uchar3 px = h_cpu[idx];
-            cpuOut << (int)px.x << " " << (int)px.y << " " << (int)px.z << " ";
+            cpuOut << (int) px.x << " " << (int) px.y << " " << (int) px.z << " ";
         }
     cpuOut.close();
     std::cout << "[INFO] CPU image saved to: " << cpuPath << "\n";
