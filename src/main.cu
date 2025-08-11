@@ -1,3 +1,9 @@
+/**
+* @file main.cu
+ * @brief Entry point: runs GPU + CPU renderers, saves PPMs, prints timing.
+ * @details Uses a simple P3 (ASCII) PPM writer for readability; swap to P6 for speed/size.
+ */
+
 #include <cuda_runtime.h>
 #include <chrono>
 #include <fstream>

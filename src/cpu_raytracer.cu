@@ -1,32 +1,36 @@
+/**
+ * @file cpu_raytracer.cu
+ * @brief CPU reference renderer: matches GPU scene/light/shader for visual parity.
+ * @details Renders the Cornell box with Lambert shading + hard shadows, writes RGB.
+ */
+
 #include "rendering/cpu_raytracer.cuh"
 #include "rendering/scene_setup.cuh"
 #include "core/ray.cuh"
 #include "geometry/quad.cuh"
 #include "rendering/light.cuh"
-#include "rendering/shader.cuh"       // toFloat3, toUChar3, shadeLambert
-#include "debug/debug_utils.cuh"      // renderLightDebug, renderLightDirectionRay
-#include "debug/debug_config.cuh"     // DEBUG_* toggles
+#include "rendering/shader.cuh"
+#include "debug/debug_utils.cuh"
+#include "debug/debug_config.cuh"
 
-// -----------------------------------------------------------------------------
+// =======================================================
 // CPU reference raytracer
-//   - Matches GPU raytracer’s scene setup, lighting, and shading
-//   - Renders the Cornell box using a single point light
-//   - Uses Lambertian shading with shadows and gamma correction
-//   - Supports the same debug gizmos as the GPU path (light sphere/arrow)
-//   - Output stored in uchar3 buffer (RGB, 0–255 per channel)
-// -----------------------------------------------------------------------------
+// =======================================================
+// - Matches GPU scene setup, lighting, and shading
+// - Supports the same debug gizmos (light sphere/arrow)
+// - Output stored in uchar3 buffer (RGB, 0–255 per channel)
 __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
     // ------------------------
     // Scene setup: Cornell box
     // ------------------------
     Quad quads[SCENE_QUAD_COUNT];
-    buildCornellBox(quads); // Builds all 6 Cornell box walls with materials
+    buildCornellBox(quads);
 
     // ------------------------
     // Environment & lighting
     // ------------------------
-    const Vec3 bg = toFloat3(defaultBackgroundU8()); // Background color when no hit
-    const Light light = defaultLight(); // Shared default light
+    const Vec3 bg = toFloat3(defaultBackgroundU8()); // background when no hit
+    const Light light = defaultLight(); // shared default light
 
     // ------------------------
     // Per-pixel rendering loop
@@ -38,16 +42,14 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             // ------------------------
             // Ray generation
             // ------------------------
-            // Same FOV as GPU to ensure identical perspective
             const Ray ray = generateCameraRay(x, y, width, height, defaultCameraFovDeg());
 
 #if DEBUG_DRAW_LIGHT_SPHERE || DEBUG_DRAW_LIGHT_DIRECTION
             // ------------------------
-            // Debug gizmos (draw “over” the scene), just like GPU
+            // Debug gizmos (draw on top), same as GPU path
             // ------------------------
             {
                 uchar3 gizmoColor;
-                // If either gizmo hits, write and continue to next pixel
                 if (renderLightDebug(ray, light, gizmoColor)) {
                     buffer[idx] = gizmoColor;
                     continue;
@@ -63,19 +65,16 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             // Intersection test
             // ------------------------
             Hit hit{};
-            hit.t = 1e20f; // Start with a large "infinite" distance
+            hit.t = 1e20f;
             hit.hit = false;
-
-            // Check all quads (walls, floor, ceiling) in the Cornell box
             for (int i = 0; i < SCENE_QUAD_COUNT; ++i) {
                 float tHit;
                 if (quads[i].intersect(ray, tHit) && tHit < hit.t) {
-                    // Found a closer hit
                     hit.t = tHit;
                     hit.hit = true;
-                    hit.P = ray.at(tHit); // World-space hit point
-                    hit.N = quads[i].normal; // Flat normal for the quad
-                    hit.mat = quads[i].material; // Material at hit
+                    hit.P = ray.at(tHit);
+                    hit.N = quads[i].normal;
+                    hit.mat = quads[i].material;
                 }
             }
 
@@ -83,10 +82,9 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             // Shading
             // ------------------------
             const Vec3 out = hit.hit
-                                 ? shadeLambert(hit, light, quads, SCENE_QUAD_COUNT) // Diffuse + shadows + gamma
-                                 : bg; // Background color if no hit
+                                 ? shadeLambert(hit, light, quads, SCENE_QUAD_COUNT)
+                                 : bg;
 
-            // Convert from Vec3 [0,1] to uchar3 [0,255] for output
             buffer[idx] = toUChar3(out);
         }
     }

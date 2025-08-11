@@ -1,3 +1,8 @@
+/**
+* @file Test/main.cu
+ * @brief Minimal CUDA sanity test: prints from a tiny GPU kernel.
+ */
+
 #include <cstdio>
 
 __global__ void helloGPU() {

@@ -1,3 +1,10 @@
+/**
+ * @file raytracer.cu
+ * @brief GPU primary-ray kernel: builds Cornell box, shades with Lambert + shadows, writes RGB.
+ * @details One CUDA thread shades exactly one pixel. Shares default light, background, and
+ *          FOV with the CPU path via scene_setup.cuh to keep outputs consistent.
+ */
+
 #include "core/material.cuh"
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
@@ -9,29 +16,37 @@
 #include "debug/debug_utils.cuh"
 #include "debug/debug_config.cuh"
 
+// =======================================================
 // Small numeric helpers
+// =======================================================
 static __device__ __forceinline__ float dInf() { return 1e20f; }
 
-// === Main Raytracer Kernel ===
+// =======================================================
+// Main raytracer kernel
+// =======================================================
 // Each thread shades exactly one pixel.
 __global__ void raytrace(uchar3 *buffer, int width, int height) {
+    // Thread → pixel coordinates
     const unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
     const unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= width || y >= height) return;
+    if (x >= static_cast<unsigned int>(width) ||
+        y >= static_cast<unsigned int>(height))
+        return;
 
-    const int idx = y * width + x;
+    const int idx = static_cast<int>(y) * width + static_cast<int>(x);
 
-    // Camera ray through pixel center
-    const Ray ray = generateCameraRay(x, y, width, height, defaultCameraFovDeg());
-
-    // Background color (sky-ish)
+    // -------------------------
+    // Camera / background / light
+    // -------------------------
+    const Ray ray = generateCameraRay(static_cast<int>(x), static_cast<int>(y),
+                                      width, height, defaultCameraFovDeg());
     const Vec3 bg = toFloat3(defaultBackgroundU8());
-
-    // Simple test light (point)
     const Light light = defaultLight();
 
 #if DEBUG_DRAW_LIGHT_SPHERE || DEBUG_DRAW_LIGHT_DIRECTION
-    // === Light gizmos (draw “over” scene for quick debugging)
+    // -------------------------
+    // Debug gizmos (draw on top)
+    // -------------------------
     uchar3 gizmoColor;
     if (renderLightDebug(ray, light, gizmoColor)) {
         buffer[idx] = gizmoColor;
@@ -43,27 +58,32 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     }
 #endif
 
-    // Build Cornell box locally (6 quads)
+    // -------------------------
+    // Scene build (Cornell box)
+    // -------------------------
     Quad quads[SCENE_QUAD_COUNT];
     buildCornellBox(quads);
 
-    // Intersect quads and keep nearest hit
+    // -------------------------
+    // Intersect & keep nearest
+    // -------------------------
     Hit hit{};
     hit.t = dInf();
     hit.hit = false;
-
     for (int i = 0; i < SCENE_QUAD_COUNT; ++i) {
         float tHit;
         if (quads[i].intersect(ray, tHit) && tHit < hit.t) {
             hit.t = tHit;
             hit.hit = true;
             hit.P = ray.at(tHit);
-            hit.N = quads[i].normal; // constant per-quad
+            hit.N = quads[i].normal; // quads have a constant normal
             hit.mat = quads[i].material;
         }
     }
 
-    // Shade (Lambert + ambient + shadows) or background
+    // -------------------------
+    // Shade or fallback to background
+    // -------------------------
     const Vec3 out = hit.hit
                          ? shadeLambert(hit, light, quads, SCENE_QUAD_COUNT)
                          : bg;
