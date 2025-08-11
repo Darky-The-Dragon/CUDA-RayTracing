@@ -1,7 +1,7 @@
 #ifndef MATERIAL_CUH
 #define MATERIAL_CUH
 
-#include <cuda_runtime.h> // for uchar3, make_uchar3
+#include <cuda_runtime.h>
 
 /**
  * @brief Supported material types for shading.

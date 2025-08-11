@@ -2,7 +2,7 @@
 #define SCENE_CUH
 
 #include "sphere.cuh"
-#include "core/material.cuh" // For Materials:: factories
+#include "core/material.cuh"
 
 /**
  * @file scene.cuh
@@ -18,13 +18,13 @@
  */
 
 // Hardcoded GPU scene: three spheres with different positions/materials
-__device__ Sphere scene[] = {
+__device__ inline Sphere scene[] = {
     {Vec3(0.0f, 0.0f, -1.0f), 0.5f, Materials::RedDiffuse()},
     {Vec3(0.75f, 0.0f, -1.25f), 0.3f, Materials::GreenDiffuse()},
     {Vec3(-0.75f, 0.0f, -1.5f), 0.4f, Materials::WhiteDiffuse()}
 };
 
 // Number of spheres (constant memory for fast access)
-__constant__ int numSpheres = 3;
+__constant__ inline int numSpheres = 3;
 
 #endif // SCENE_CUH

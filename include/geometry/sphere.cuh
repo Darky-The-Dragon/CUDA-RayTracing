@@ -1,7 +1,6 @@
 #ifndef SPHERE_CUH
 #define SPHERE_CUH
 
-#include <cmath>              // sqrtf
 #include "core/vec3.cuh"
 #include "core/material.cuh"
 

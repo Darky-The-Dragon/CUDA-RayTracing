@@ -1,7 +1,6 @@
 #ifndef QUAD_CUH
 #define QUAD_CUH
 
-#include <cmath>               // fabsf
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 #include "core/material.cuh"

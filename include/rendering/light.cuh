@@ -2,7 +2,7 @@
 #define LIGHT_CUH
 
 #include "core/vec3.cuh"
-#include <cuda_runtime.h> // for uchar3, make_uchar3
+#include <cuda_runtime.h>
 
 /**
  * @brief Types of lights supported by the renderer.

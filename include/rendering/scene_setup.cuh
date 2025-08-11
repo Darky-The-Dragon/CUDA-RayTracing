@@ -7,10 +7,12 @@
 #include "core/ray.cuh"
 #include "geometry/quad.cuh"
 #include "core/material.cuh"
+#include "rendering/light.cuh" // Added so we can define defaultLight()
 
 /**
  * @file scene_setup.cuh
- * @brief Scene construction helpers (Cornell box, ground plane) and camera ray generation.
+ * @brief Scene construction helpers (Cornell box, ground plane), camera ray generation,
+ *        and default scene settings (background color, light source, FOV).
  */
 
 // =======================================================
@@ -34,6 +36,39 @@ namespace Colors {
 }
 
 // =======================================================
+// Default scene settings (shared by CPU & GPU renderers)
+// =======================================================
+
+/**
+ * @brief Default field of view for the camera, in degrees.
+ */
+__host__ __device__ inline float defaultCameraFovDeg() { return 90.0f; }
+
+/**
+ * @brief Default background color for the scene (as uchar3).
+ *        Convert to Vec3 with toFloat3() when needed.
+ */
+__host__ __device__ inline uchar3 defaultBackgroundU8() {
+    return Colors::LightBlue();
+}
+
+/**
+ * @brief Default debug light used for simple Lambert shading.
+ *        Matches both CPU & GPU renderers to keep output consistent.
+ */
+__host__ __device__ inline Light defaultLight() {
+    return Light(
+        POINT, // type
+        Vec3(0.0f, -0.9f, 0.0f), // position
+        Vec3(0.0f, -1.0f, 0.0f), // direction (ignored for POINT)
+        make_uchar3(255, 255, 100), // color
+        3.0f, // intensity
+        10.0f, // range
+        0.0f // coneAngle
+    );
+}
+
+// =======================================================
 // Scene construction
 // =======================================================
 
@@ -42,11 +77,11 @@ namespace Colors {
  *
  * Layout:
  *  - Quads [0..4]: Cornell box walls (left, right, floor, ceiling, back)
- *  - Quad [5]:     Large flat ground plane beneath box
+ *  - Quad  [5]:    Large flat ground plane beneath box
  *
  * @param quads    Output array of quads (size must be SCENE_QUAD_COUNT).
- * @param boxSize  Size of the Cornell box edges.
- * @param groundY  Y position of the ground plane.
+ * @param boxSize  Size of the Cornell box edges (default = 4.0f units).
+ * @param groundY  Y position of the ground plane (default = 3.0f).
  */
 __host__ __device__ inline void buildCornellBox(
     Quad *quads,
@@ -99,13 +134,15 @@ __host__ __device__ inline Ray generateCameraRay(
     const float aspect = static_cast<float>(width) / static_cast<float>(height);
     const float fov = tanf(0.5f * fov_deg * 3.14159265f / 180.0f);
 
+    // Normalized Device Coordinates (-1 to 1 range)
     float ndcX = ((x + 0.5f) / width) * 2.0f - 1.0f;
     float ndcY = ((y + 0.5f) / height) * 2.0f - 1.0f;
 
+    // Apply aspect ratio and FOV scaling
     ndcX *= aspect * fov;
     ndcY *= fov;
 
-    const Vec3 origin(0.0f, 1.0f, 5.0f);
+    const Vec3 origin(0.0f, 1.0f, 5.0f); // Camera position
     const Vec3 dir = Vec3(ndcX, ndcY, -1.0f).normalize();
     return Ray(origin, dir);
 }

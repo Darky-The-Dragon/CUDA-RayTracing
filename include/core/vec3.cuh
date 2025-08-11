@@ -1,8 +1,6 @@
 #ifndef VEC3_CUH
 #define VEC3_CUH
 
-#include <cmath> // for sqrtf
-
 /**
  * @brief Basic 3D vector type to represent points, directions, and colors.
  *

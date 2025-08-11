@@ -1,7 +1,6 @@
 #ifndef PLANE_CUH
 #define PLANE_CUH
 
-#include <cmath>            // fabsf
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 

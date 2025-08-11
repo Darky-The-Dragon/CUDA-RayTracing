@@ -1,6 +1,3 @@
-// main.cu — GPU vs CPU raytracing entry point
-// Renders once on GPU, once on CPU, saves both to /output, and prints timings.
-
 #include <cuda_runtime.h>
 #include <chrono>
 #include <fstream>
@@ -8,14 +5,14 @@
 #include <string>
 #include <vector>
 
-#include <filesystem> // C++17: create_directories
+#include <filesystem>
 namespace fs = std::filesystem;
 
 #include "../include/rendering/raytrace.cuh"
 #include "../include/rendering/cpu_raytracer.cuh"
 
 // ---- Image size (tweak freely)
-static constexpr int WIDTH  = 1024;
+static constexpr int WIDTH = 1024;
 static constexpr int HEIGHT = 1024;
 
 // ---- Quick CUDA error helper (keeps main readable)
@@ -30,7 +27,7 @@ static constexpr int HEIGHT = 1024;
     } while (0)
 
 // ---- Minimal PPM writer (binary P6 would be smaller; P3 is human-readable)
-static bool writePPM(const std::string& path, const uchar3* pixels, int w, int h) {
+static bool writePPM(const std::string &path, const uchar3 *pixels, int w, int h) {
     std::ofstream out(path);
     if (!out.is_open()) return false;
 
@@ -54,19 +51,19 @@ int main() {
     fs::create_directories(outDir);
 
     // ---------------- GPU Raytracer ----------------
-    uchar3* d_buffer = nullptr;
+    uchar3 *d_buffer = nullptr;
     CUDA_CHECK(cudaMalloc(&d_buffer, image_size));
 
     const dim3 threadsPerBlock(16, 16);
     const dim3 blocksPerGrid(
-        (WIDTH  + threadsPerBlock.x - 1) / threadsPerBlock.x,
+        (WIDTH + threadsPerBlock.x - 1) / threadsPerBlock.x,
         (HEIGHT + threadsPerBlock.y - 1) / threadsPerBlock.y
     );
 
     std::cout << "[GPU DEBUG] Threads per block: " << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
     std::cout << "[GPU DEBUG] Total blocks: " << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
     std::cout << "[GPU DEBUG] Total threads: "
-              << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
+            << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
 
     cudaEvent_t start{}, stop{};
     CUDA_CHECK(cudaEventCreate(&start));

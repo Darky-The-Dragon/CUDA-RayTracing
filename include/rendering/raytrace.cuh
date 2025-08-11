@@ -1,7 +1,7 @@
 #ifndef RAYTRACE_CUH
 #define RAYTRACE_CUH
 
-#include <cuda_runtime.h> // for uchar3
+#include <cuda_runtime.h>
 
 /**
  * @file raytrace.cuh

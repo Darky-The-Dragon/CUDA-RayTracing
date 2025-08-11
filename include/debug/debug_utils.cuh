@@ -12,10 +12,10 @@
  * @brief Tiny helpers to visualize light gizmos (position sphere, direction arrow).
  */
 
-// Tunables for debug gizmos
+// Tunable debug gizmos
 constexpr float kLightSphereRadius = 0.10f;
-constexpr float kArrowBodyRadius   = 0.03f;
-constexpr float kArrowBodyLength   = 0.80f;
+constexpr float kArrowBodyRadius = 0.03f;
+constexpr float kArrowBodyLength = 0.80f;
 
 
 // Simple ray–sphere hit test (no t out since we only need a yes/no for gizmos)
