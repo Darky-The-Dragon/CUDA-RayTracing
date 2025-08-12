@@ -4,12 +4,11 @@
  * @details Renders the Cornell box with Lambert shading + hard shadows, writes RGB.
  */
 
+#include "core/camera.cuh"
 #include "rendering/cpu_raytracer.cuh"
-#include "rendering/scene_setup.cuh"
-#include "core/ray.cuh"
-#include "geometry/quad.cuh"
-#include "rendering/light.cuh"
+#include "rendering/defaults.cuh"
 #include "rendering/shader.cuh"
+#include "scenes/world_build.cuh"
 #include "debug/debug_utils.cuh"
 #include "debug/debug_config.cuh"
 
@@ -23,14 +22,19 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
     // ------------------------
     // Scene setup: Cornell box
     // ------------------------
-    Quad quads[SCENE_QUAD_COUNT];
-    buildCornellBox(quads);
+    WorldBuffers W;
+    buildWorld(W);
 
     // ------------------------
     // Environment & lighting
     // ------------------------
+    Camera cam;
+    cam.fov_deg = defaultCameraFovDeg();
     const Vec3 bg = toFloat3(defaultBackgroundU8()); // background when no hit
     const Light light = defaultLight(); // shared default light
+
+    // Local sentinel for “infinite” distance
+    constexpr float kInf = 1e20f;
 
     // ------------------------
     // Per-pixel rendering loop
@@ -42,11 +46,12 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             // ------------------------
             // Ray generation
             // ------------------------
-            const Ray ray = generateCameraRay(x, y, width, height, defaultCameraFovDeg());
+            const Ray ray = generatePrimaryRay(cam, x, y, width, height);
 
 #if DEBUG_DRAW_LIGHT_SPHERE || DEBUG_DRAW_LIGHT_DIRECTION
             // ------------------------
             // Debug gizmos (draw on top), same as GPU path
+            // Early-out if a gizmo “hits” this pixel
             // ------------------------
             {
                 uchar3 gizmoColor;
@@ -65,24 +70,25 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             // Intersection test
             // ------------------------
             Hit hit{};
-            hit.t = 1e20f;
+            hit.t = kInf;
             hit.hit = false;
+
             for (int i = 0; i < SCENE_QUAD_COUNT; ++i) {
                 float tHit;
-                if (quads[i].intersect(ray, tHit) && tHit < hit.t) {
+                if (W.quads[i].intersect(ray, tHit) && tHit < hit.t) {
                     hit.t = tHit;
                     hit.hit = true;
                     hit.P = ray.at(tHit);
-                    hit.N = quads[i].normal;
-                    hit.mat = quads[i].material;
+                    hit.N = W.quads[i].normal;
+                    hit.mat = W.quads[i].material;
                 }
             }
 
             // ------------------------
-            // Shading
+            //  Shading (Lambert + ambient + hard shadow) or background
             // ------------------------
             const Vec3 out = hit.hit
-                                 ? shadeLambert(hit, light, quads, SCENE_QUAD_COUNT)
+                                 ? shadeLambert(hit, light, W.quads, SCENE_QUAD_COUNT)
                                  : bg;
 
             buffer[idx] = toUChar3(out);

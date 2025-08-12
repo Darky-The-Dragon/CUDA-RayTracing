@@ -1,30 +1,31 @@
+// ============================================================================
+// @file debug_config.cuh
+// @brief Centralized compile-time debug feature toggles for the ray tracer.
+//
+// These macros act as global switches for enabling/disabling optional
+// debug visualizations. Keeping all toggles in one place avoids having
+// to hunt through multiple files to change debug settings.
+//
+// Convention:
+//   - 1 = Enabled
+//   - 0 = Disabled
+//
+// Note: Changing a toggle requires recompiling the project.
+// ============================================================================
 #ifndef DEBUG_CONFIG_CUH
 #define DEBUG_CONFIG_CUH
 
-/**
- * @file debug_config.cuh
- * @brief Centralized debug feature toggles for the ray tracer.
- *
- * These macros act as compile-time switches to enable or disable
- * specific debug visualizations. Keeping them here avoids the need
- * to hunt through multiple source files to toggle a feature.
- *
- * Convention:
- *  - 1 = Enabled
- *  - 0 = Disabled
- *
- * Changing a value requires recompiling the project.
- */
+// ----------------------------------------------------------------------------
+// Debug feature toggles
+// ----------------------------------------------------------------------------
 
-// === Debug Toggles ===
-
-/// @brief Draw a small sphere at the light's position for visualization.
+/// @brief Draw a small sphere at the light’s position (all light types).
 #define DEBUG_DRAW_LIGHT_SPHERE     1
 
-/// @brief Draw an arrow/line representing the light's direction (for directional/spot lights).
+/// @brief Draw a short arrow body indicating the light’s direction (DIRECTIONAL/SPOT only).
 #define DEBUG_DRAW_LIGHT_DIRECTION  1
 
-/// @brief Show surface normals (planned feature — currently unused).
+/// @brief Show per-pixel surface normals (planned feature — currently unused).
 #define DEBUG_DRAW_NORMALS          0
 
 /// @brief Visualize BVH nodes for acceleration structure debugging (future feature).

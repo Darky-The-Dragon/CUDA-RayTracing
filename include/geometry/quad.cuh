@@ -1,53 +1,86 @@
-#ifndef QUAD_CUH
-#define QUAD_CUH
+// ============================================================================
+// @file quad.cuh
+// @brief Quad primitive for ray tracing.
+//
+// Defines an axis-free quadrilateral using:
+//   - One corner position
+//   - Two edge vectors (spanU and spanV)
+//   - A surface material
+//
+// The surface is represented as:
+//   P(u, v) = position + u * spanU + v * spanV, with u,v in [0, 1]
+//
+// Notes:
+//   - spanU and spanV must not be colinear.
+//   - The normal is computed using the right-hand rule: normalize(spanU × spanV).
+//
+// Supports ray–quad intersection testing using a Möller–Trumbore-style method.
+// Used in both CPU and GPU rendering paths.
+// ============================================================================
+
+#ifndef GEOMETRY_QUAD_CUH
+#define GEOMETRY_QUAD_CUH
 
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 #include "core/material.cuh"
 #include <cuda_runtime.h>
 
-/**
- * @brief Axis‑free quad defined by a corner and two edge vectors.
- *
- * The surface is the parallelogram:
- *   P(u,v) = position + u * spanU + v * spanV,  with u,v in [0,1]
- *
- * Notes:
- * - `spanU` and `spanV` must not be colinear.
- * - Normal uses right‑hand rule: normalize(spanU × spanV).
- */
+/// ----------------------------------------------------------------------------
+/// @struct Quad
+/// @brief Axis-free quad defined by a corner and two edge vectors.
+/// ----------------------------------------------------------------------------
 struct Quad {
-    Vec3 position; ///< Corner (e.g., bottom-left)
-    Vec3 spanU; ///< First edge vector
-    Vec3 spanV; ///< Second edge vector
-    Vec3 normal; ///< Unit surface normal
-    Material material; ///< Surface material
+    Vec3 position; ///< Quad corner position (e.g., bottom-left).
+    Vec3 spanU; ///< First edge vector (U direction).
+    Vec3 spanV; ///< Second edge vector (V direction).
+    Vec3 normal; ///< Unit surface normal.
+    Material material; ///< Surface material.
 
+    /// ------------------------------------------------------------------------
+    /// @brief Default constructor.
+    /// Creates a unit quad in the XY plane with a +Z facing normal.
+    /// ------------------------------------------------------------------------
     __host__ __device__
-    Quad() : position(0.0f), spanU(1.0f, 0.0f, 0.0f), spanV(0.0f, 1.0f, 0.0f),
-             normal(0.0f, 0.0f, 1.0f), material() {
+    Quad()
+        : position(0.0f),
+          spanU(1.0f, 0.0f, 0.0f),
+          spanV(0.0f, 1.0f, 0.0f),
+          normal(0.0f, 0.0f, 1.0f),
+          material() {
     }
 
+    /// ------------------------------------------------------------------------
+    /// @brief Fully parameterized constructor.
+    /// @param position_  Corner position of the quad (world space).
+    /// @param spanU_     First edge vector (U direction).
+    /// @param spanV_     Second edge vector (V direction).
+    /// @param material_  Surface material applied to the quad.
+    /// ------------------------------------------------------------------------
     __host__ __device__
     Quad(const Vec3 &position_, const Vec3 &spanU_, const Vec3 &spanV_, const Material &material_)
         : position(position_), spanU(spanU_), spanV(spanV_), material(material_) {
         normal = spanU.cross(spanV).normalize();
     }
 
-    /**
-     * @brief Ray–quad intersection using a Möller–Trumbore style test on the parallelogram.
-     * @param ray     Input ray.
-     * @param tHit    Output hit distance (only valid if true is returned).
-     * @return true if the ray hits the quad with u,v in [0,1] and t > eps.
-     */
+    /// ------------------------------------------------------------------------
+    /// @brief Ray–quad intersection test.
+    ///
+    /// Uses a Möller–Trumbore-style algorithm adapted for parallelograms.
+    /// The hit point is valid if u,v ∈ [0, 1] and t > epsilon.
+    ///
+    /// @param ray     Input ray.
+    /// @param tHit    Output — smallest positive hit distance along the ray.
+    /// @return true if the ray hits the quad within its bounds.
+    /// ------------------------------------------------------------------------
     __host__ __device__
     bool intersect(const Ray &ray, float &tHit) const {
-        constexpr float EPS = 1e-4f; // geometric eps; tweak if needed
+        constexpr float EPS = 1e-4f; // geometric epsilon
 
         // pVec = D × spanV
         const Vec3 pVec = ray.direction.cross(spanV);
 
-        // det = spanU · pVec  (parallel if ~0)
+        // det = spanU · pVec (parallel if ~0)
         const float det = spanU.dot(pVec);
         if (fabsf(det) < EPS) return false;
 
@@ -77,4 +110,4 @@ struct Quad {
     }
 };
 
-#endif // QUAD_CUH
+#endif // GEOMETRY_QUAD_CUH

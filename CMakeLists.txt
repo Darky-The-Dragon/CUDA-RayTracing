@@ -28,18 +28,23 @@ add_compile_definitions(PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 set(HEADERS
         include/core/vec3.cuh
         include/core/ray.cuh
-        include/geometry/sphere.cuh
+        include/core/material.cuh
         include/geometry/plane.cuh
         include/geometry/quad.cuh
-        include/geometry/scene.cuh
-        include/rendering/scene_setup.cuh
+        include/geometry/sphere.cuh
         include/rendering/raytrace.cuh
         include/rendering/cpu_raytracer.cuh
-        include/core/material.cuh
         include/rendering/light.cuh
+        include/rendering/shader.cuh
         include/debug/debug_utils.cuh
         include/debug/debug_config.cuh
-        include/rendering/shader.cuh
+        include/scenes/basic_spheres.cuh
+        include/scenes/scene_config.cuh
+        include/scenes/world_build.cuh
+        include/core/colors.cuh
+        include/scenes/cornell_box.cuh
+        include/core/camera.cuh
+        include/rendering/defaults.cuh
 )
 
 # Source files

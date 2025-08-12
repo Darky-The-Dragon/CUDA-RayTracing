@@ -1,46 +1,66 @@
-#ifndef SPHERE_CUH
-#define SPHERE_CUH
+// ============================================================================
+// @file sphere.cuh
+// @brief Sphere primitive for ray tracing.
+//
+// Defines a simple geometric object with:
+//   - Center position
+//   - Radius
+//   - Surface material
+//
+// Supports ray–sphere intersection testing for shading and visibility queries.
+// Used in both CPU and GPU rendering paths.
+// ============================================================================
+
+#ifndef GEOMETRY_SPHERE_CUH
+#define GEOMETRY_SPHERE_CUH
 
 #include "core/vec3.cuh"
 #include "core/material.cuh"
 
-/**
- * @brief Represents a sphere with a center, radius, and surface material.
- *
- * Used as a simple geometric primitive for ray tracing.
- */
+/// ----------------------------------------------------------------------------
+/// @struct Sphere
+/// @brief Represents a sphere with a center, radius, and surface material.
+/// ----------------------------------------------------------------------------
 struct Sphere {
-    Vec3 center; ///< Sphere center in world space
-    float radius; ///< Sphere radius (must be > 0)
-    Material material; ///< Surface material
+    Vec3 center; ///< Sphere center in world space.
+    float radius; ///< Sphere radius (must be > 0).
+    Material material; ///< Surface material.
 
-    /// @brief Default constructor (unit sphere at origin, default material).
+    /// ------------------------------------------------------------------------
+    /// @brief Default constructor.
+    /// Creates a unit sphere at the origin with the default material.
+    /// ------------------------------------------------------------------------
     __host__ __device__
     Sphere() : center(0.0f), radius(1.0f), material() {
     }
 
+    /// ------------------------------------------------------------------------
     /// @brief Fully parameterized constructor.
+    /// @param center   Sphere center in world space.
+    /// @param radius   Sphere radius (must be > 0).
+    /// @param m        Material applied to the sphere's surface.
+    /// ------------------------------------------------------------------------
     __host__ __device__
     Sphere(const Vec3 &center, float radius, const Material &m)
         : center(center), radius(radius), material(m) {
     }
 
-    /**
-     * @brief Ray–sphere intersection.
-     *
-     * Solves the quadratic equation for intersection points:
-     *   |O + tD - C|² = r²
-     *
-     * @param rayOrigin    Starting point of the ray.
-     * @param rayDirection Direction of the ray (should be normalized for stable t values).
-     * @param outDistance  Output parameter — smallest positive hit distance.
-     * @return true if the ray hits the sphere in front of the origin.
-     */
+    /// ------------------------------------------------------------------------
+    /// @brief Ray–sphere intersection test.
+    ///
+    /// Solves the quadratic equation for intersection points:
+    ///   |O + tD - C|² = r²
+    ///
+    /// @param rayOrigin    Origin of the ray.
+    /// @param rayDirection Direction of the ray (should be normalized for stable t values).
+    /// @param outDistance  Output parameter — smallest positive intersection distance (t).
+    /// @return true if the ray hits the sphere in front of the origin.
+    /// ------------------------------------------------------------------------
     __host__ __device__
     bool intersect(const Vec3 &rayOrigin, const Vec3 &rayDirection, float &outDistance) const {
         const Vec3 oc = rayOrigin - center;
 
-        const float a = rayDirection.dot(rayDirection); // =1 if normalized
+        const float a = rayDirection.dot(rayDirection); // = 1 if normalized
         const float b = 2.0f * oc.dot(rayDirection);
         const float c = oc.dot(oc) - radius * radius;
 
@@ -59,4 +79,4 @@ struct Sphere {
     }
 };
 
-#endif // SPHERE_CUH
+#endif // GEOMETRY_SPHERE_CUH
