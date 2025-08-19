@@ -6,7 +6,7 @@
 
 #include "core/camera.cuh"
 #include "rendering/cpu_raytracer.cuh"
-#include "rendering/defaults.cuh"
+#include "../include/config/defaults.cuh"
 #include "rendering/shader.cuh"
 #include "scenes/world_build.cuh"
 #include "debug/debug_utils.cuh"
@@ -73,6 +73,9 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             hit.t = kInf;
             hit.hit = false;
 
+            // ------------------------
+            // Quads Intersection
+            // ------------------------
             for (int i = 0; i < SCENE_QUAD_COUNT; ++i) {
                 float tHit;
                 if (W.quads[i].intersect(ray, tHit) && tHit < hit.t) {
@@ -85,11 +88,31 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             }
 
             // ------------------------
+            // Sphere Intersection
+            // ------------------------
+            for (int i = 0; i < W.numSpheres; ++i) {
+                float tHit;
+                if (W.spheres[i].intersect(ray.origin, ray.direction, tHit) && tHit < hit.t) {
+                    hit.t = tHit;
+                    hit.hit = true;
+                    hit.P = ray.at(tHit);
+                    hit.N = (hit.P - W.spheres[i].center).normalize();
+                    hit.mat = W.spheres[i].material;
+                }
+            }
+
+            // ------------------------
             //  Shading (Lambert + ambient + hard shadow) or background
             // ------------------------
+            //const Vec3 out = hit.hit
+            //                     ? shadeLambertAll(hit, light, W.quads, W.numQuads, W.spheres, W.numSpheres)
+            //                     : bg;
+
+            uint32_t seed = (x * 1973u + y * 9277u + 89173u);
             const Vec3 out = hit.hit
-                                 ? shadeLambert(hit, light, W.quads, SCENE_QUAD_COUNT)
-                                 : bg;
+              ? shadeLambertSoftAll(hit, light, W.quads, W.numQuads, W.spheres, W.numSpheres,
+                                    seed, /*samples=*/16)
+              : bg;
 
             buffer[idx] = toUChar3(out);
         }

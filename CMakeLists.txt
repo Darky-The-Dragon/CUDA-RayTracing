@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
 project(CUDA_RayTracing LANGUAGES CXX CUDA)
 
-# Use C++17 and CUDA 14 for compatibility
-set(CMAKE_CXX_STANDARD 14)
+# Use C++17 and CUDA 17 for compatibility
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 
 # Automatically locate the CUDA toolkit (works on Linux, macOS, Windows)
@@ -26,25 +26,27 @@ add_compile_definitions(PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Header files
 set(HEADERS
-        include/core/vec3.cuh
-        include/core/ray.cuh
+        include/config/defaults.cuh
+        include/config/config.cuh
+        include/config/scene_config.cuh
+        include/core/camera.cuh
+        include/core/colors.cuh
         include/core/material.cuh
+        include/core/ray.cuh
+        include/core/vec3.cuh
+        include/debug/debug_config.cuh
+        include/debug/debug_utils.cuh
         include/geometry/plane.cuh
         include/geometry/quad.cuh
         include/geometry/sphere.cuh
-        include/rendering/raytrace.cuh
         include/rendering/cpu_raytracer.cuh
         include/rendering/light.cuh
+        include/rendering/postprocess.cuh
+        include/rendering/raytrace.cuh
         include/rendering/shader.cuh
-        include/debug/debug_utils.cuh
-        include/debug/debug_config.cuh
         include/scenes/basic_spheres.cuh
-        include/scenes/scene_config.cuh
-        include/scenes/world_build.cuh
-        include/core/colors.cuh
         include/scenes/cornell_box.cuh
-        include/core/camera.cuh
-        include/rendering/defaults.cuh
+        include/scenes/world_build.cuh
 )
 
 # Source files

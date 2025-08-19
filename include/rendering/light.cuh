@@ -45,6 +45,7 @@ struct Light {
     float intensity; ///< Brightness multiplier.
     float range; ///< Effective range for attenuation (POINT/SPOT only).
     float coneAngle; ///< Cone half-angle in degrees (SPOT only).
+    float radius;     ///< Area radius (world units). 0 => hard shadows.
 
     /// ----------------------------------------------------------------------------
     /// @brief Default constructor — creates a white point light pointing downward.
@@ -66,30 +67,35 @@ struct Light {
           color(make_uchar3(255, 255, 255)),
           intensity(1.0f),
           range(10.0f),
-          coneAngle(30.0f) {
+          coneAngle(30.0f),
+          radius(0.0f){
     }
 
     /// ----------------------------------------------------------------------------
     /// @brief Full parameter constructor.
     ///
-    /// @param t     Light type (POINT, DIRECTIONAL, SPOT).
-    /// @param pos   Position in world space.
-    /// @param dir   Direction vector (will be normalized).
-    /// @param col   Light color (0–255 RGB).
-    /// @param inten Brightness multiplier.
-    /// @param rng   Effective range for attenuation.
-    /// @param angle Cone half-angle in degrees (used only for SPOT).
+    /// @param t          Light type (POINT, DIRECTIONAL, SPOT).
+    /// @param position   Position in world space.
+    /// @param direction  Direction vector (will be normalized).
+    /// @param color      Light color (0–255 RGB).
+    /// @param intensity  Brightness multiplier.
+    /// @param range      Effective range for attenuation (POINT/SPOT).
+    /// @param coneAngle  Cone half-angle in degrees (SPOT only; ignored otherwise).
+    /// @param radius     Disc radius of the emitter in world units.
+    ///                   Use 0.0f for an ideal point light; values > 0 enable
+    ///                   area-light behavior (softer shadows proportional to radius).
     /// ----------------------------------------------------------------------------
     __host__ __device__
-    Light(LightType t, const Vec3 &pos, const Vec3 &dir, uchar3 col,
-          float inten, float rng, float angle)
+    Light(const LightType t, const Vec3 &position, const Vec3 &direction, const uchar3 color,
+          const float intensity, const float range, const float coneAngle, const float radius = 0.0f)
         : type(t),
-          position(pos),
-          direction(dir.normalize()),
-          color(col),
-          intensity(inten),
-          range(rng),
-          coneAngle(angle) {
+          position(position),
+          direction(direction.normalize()),
+          color(color),
+          intensity(intensity),
+          range(range),
+          coneAngle(coneAngle),
+          radius(radius){
     }
 };
 

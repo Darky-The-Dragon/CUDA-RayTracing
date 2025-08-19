@@ -233,4 +233,171 @@ __host__ __device__ inline Vec3 shadeLambertAll(
     return gammaEncode(base * nDotL * Li + base * ambient);
 }
 
+// ============================================================================
+// RNG + Disk Sampling
+// ============================================================================
+
+/// ----------------------------------------------------------------------------
+/// @brief  Wang hash pseudo-random generator (fast, stateless).
+/// @param  s Seed/state (modified in-place).
+/// @return Hashed 32-bit pseudo-random integer.
+/// ----------------------------------------------------------------------------
+__host__ __device__ inline uint32_t wanghash(uint32_t s) {
+    s = (s ^ 61u) ^ (s >> 16);
+    s *= 9u; s ^= s >> 4; s *= 0x27d4eb2du; s ^= s >> 15;
+    return s;
+}
+
+/// ----------------------------------------------------------------------------
+/// @brief  Generate a uniform random float in [0,1).
+/// @param  state RNG state (will be updated).
+/// @return Random float in [0,1).
+/// ----------------------------------------------------------------------------
+__host__ __device__ inline float rand01(uint32_t& state) {
+    state = wanghash(state);
+    return (state & 0x00FFFFFF) / 16777216.0f; // 2^24
+}
+
+/// ----------------------------------------------------------------------------
+/// @brief  Construct orthonormal basis from a given normal.
+/// @param  n Input normal (assumed normalized).
+/// @param  t Output tangent vector.
+/// @param  b Output bitangent vector.
+/// ----------------------------------------------------------------------------
+__host__ __device__ inline void onb_from_n(const Vec3& n, Vec3& t, Vec3& b) {
+    Vec3 up = fabsf(n.y) < 0.999f ? Vec3(0,1,0) : Vec3(1,0,0);
+    t = up.cross(n).normalize();
+    b = n.cross(t);
+}
+
+/// ----------------------------------------------------------------------------
+/// @brief  Map uniform random samples to a concentric disk (Shirley mapping).
+/// @param  u1,u2 Random numbers in [0,1].
+/// @param  radius Disk radius.
+/// @param  dx,dy Output coordinates on disk in [-radius, radius].
+/// ----------------------------------------------------------------------------
+__host__ __device__ inline void sampleDisk(float u1, float u2, float radius,
+                                           float& dx, float& dy) {
+    float a = 2.0f*u1 - 1.0f;
+    float b = 2.0f*u2 - 1.0f;
+    float r, phi;
+    if (a == 0 && b == 0){ dx = dy = 0; return; }
+    if (fabsf(a) > fabsf(b)) { r = a; phi = (3.14159265f/4.0f) * (b/a); }
+    else { r = b; phi = (3.14159265f/2.0f) - (3.14159265f/4.0f)*(a/b); }
+    dx = radius * r * cosf(phi);
+    dy = radius * r * sinf(phi);
+}
+
+// ============================================================================
+// Soft Shadow Visibility
+// ============================================================================
+
+/// ----------------------------------------------------------------------------
+/// @brief  Estimate soft shadow visibility from P toward a finite-radius light.
+///         Uses stratified disk sampling + visibility tests against scene.
+/// @param  P           Shading point.
+/// @param  N           Shading normal.
+/// @param  light       Light source (with position, radius, etc.).
+/// @param  quads       Pointer to scene quads.
+/// @param  numQuads    Number of quads.
+/// @param  spheres     Pointer to scene spheres.
+/// @param  numSpheres  Number of spheres.
+/// @param  seed        RNG seed (updated).
+/// @param  samples     Number of shadow samples to take.
+/// @return Fraction of unoccluded samples in [0,1].
+/// ----------------------------------------------------------------------------
+__host__ __device__ inline float softShadowVisibility(
+    const Vec3& P, const Vec3& N, const Light& light,
+    const Quad* quads, int numQuads,
+    const Sphere* spheres, int numSpheres,
+    uint32_t seed, int samples)
+{
+    // Fast path: hard shadows
+    if (light.radius <= 0.0f || samples <= 1) {
+        Vec3 L; float att, dist;
+        sampleLight(light, P, L, att, dist);
+        return isOccludedAll(P, N, L, dist, quads, numQuads, spheres, numSpheres) ? 0.0f : 1.0f;
+    }
+
+    // Build local frame aligned to light → P
+    Vec3 toLight = (light.position - P);
+    float d = toLight.length();
+    Vec3 nL = d > 0.0f ? (toLight / d) : Vec3(0,1,0);
+    Vec3 T, B; onb_from_n(nL, T, B);
+
+    // Stratified grid (√N x √N)
+    const int g = (int)ceilf(sqrtf((float)samples));
+    int taken = 0;
+    int visible = 0;
+
+    for (int iy = 0; iy < g && taken < samples; ++iy) {
+        for (int ix = 0; ix < g && taken < samples; ++ix) {
+            // Jitter inside grid cell
+            float jx = rand01(seed);
+            float jy = rand01(seed);
+
+            float u = (ix + jx) / g;
+            float v = (iy + jy) / g;
+
+            // Map to disk sample
+            float dx, dy;
+            sampleDisk(u, v, light.radius, dx, dy);
+
+            // Sample position on emitter disk
+            Vec3 samplePos = light.position + T * dx + B * dy;
+            Vec3 L = (samplePos - P);
+            float dist = L.length();
+            if (dist > 1e-6f) L = L / dist;
+
+            // Test visibility
+            if (!isOccludedAll(P, N, L, dist, quads, numQuads, spheres, numSpheres))
+                visible++;
+
+            taken++;
+        }
+    }
+
+    return (float)visible / (float)samples;
+}
+
+// ============================================================================
+// Lambertian Shading with Soft Shadows
+// ============================================================================
+
+/// ----------------------------------------------------------------------------
+/// @brief  Lambertian shading with soft shadow visibility term.
+/// @param  h           Hit info (position, normal, material).
+/// @param  light       Light source.
+/// @param  quads       Pointer to quads.
+/// @param  numQuads    Number of quads.
+/// @param  spheres     Pointer to spheres.
+/// @param  numSpheres  Number of spheres.
+/// @param  seed        RNG seed.
+/// @param  samples     Shadow samples (default = 8).
+/// @param  ambient     Ambient light term.
+/// @return Gamma-encoded RGB radiance.
+/// ----------------------------------------------------------------------------
+__host__ __device__ inline Vec3 shadeLambertSoftAll(
+    const Hit& h, const Light& light,
+    const Quad* quads, int numQuads,
+    const Sphere* spheres, int numSpheres,
+    uint32_t seed, int samples = 8,
+    const Vec3& ambient = Vec3(0.03f,0.03f,0.03f))
+{
+    if (!h.hit) return Vec3(0.0f);
+
+    Vec3 L; float att = 1.f, dist = 1e30f;
+    sampleLight(light, h.P, L, att, dist);
+
+    const float vis = softShadowVisibility(h.P, h.N, light,
+                                           quads, numQuads, spheres, numSpheres,
+                                           seed, samples);
+
+    const float nDotL = fmaxf(0.0f, h.N.dot(L));
+    const Vec3 base = toFloat3(h.mat.color);
+    const Vec3 Li   = toFloat3(light.color) * light.intensity * att;
+
+    return gammaEncode(base * (nDotL * Li * vis) + base * ambient);
+}
+
 #endif // RENDERING_SHADER_CUH

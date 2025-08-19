@@ -16,7 +16,7 @@
 #ifndef SCENES_WORLD_BUILD_CUH
 #define SCENES_WORLD_BUILD_CUH
 
-#include "scenes/scene_config.cuh"   // Scene selection masks & limits
+#include "../config/scene_config.cuh"
 #include "scenes/cornell_box.cuh"    // Cornell box construction
 #include "geometry/quad.cuh"         // Quad geometry definition
 #include "geometry/sphere.cuh"       // Sphere geometry definition
@@ -35,8 +35,8 @@
 struct WorldBuffers {
     Quad quads[MAX_QUADS]; ///< Array of quad primitives in the scene.
     Sphere spheres[MAX_SPHERES]; ///< Array of sphere primitives in the scene.
-    int numQuads; ///< Number of valid quads in `quads[]`.
-    int numSpheres; ///< Number of valid spheres in `spheres[]`.
+    int numQuads = 0; ///< Number of valid quads in `quads[]`.
+    int numSpheres = 0; ///< Number of valid spheres in `spheres[]`.
 };
 
 /// ------------------------------------------------------------------------
@@ -69,6 +69,17 @@ __host__ __device__ inline void buildWorld(WorldBuffers &W) {
         for (int i = 0; i < SCENE_QUAD_COUNT && W.numQuads < MAX_QUADS; ++i) {
             W.quads[W.numQuads++] = tmp[i];
         }
+    }
+
+    // ------------------------------------------------
+    // Sphere Test
+    // ------------------------------------------------
+    if (W.numSpheres < MAX_SPHERES) {
+        W.spheres[W.numSpheres++] = Sphere(
+            Vec3(0.0f, +1.25f, 0.0f),   // center X left/right | Y up/down | Z front/backwards
+            0.40f,                       // radius
+            Materials::GreenDiffuse()   // material
+        );
     }
 
     // ------------------------------------------------

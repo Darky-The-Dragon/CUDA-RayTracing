@@ -10,8 +10,8 @@
 // Both CPU and GPU builds include this to ensure identical scene composition.
 // ============================================================================
 
-#ifndef SCENES_SCENE_CONFIG_CUH
-#define SCENES_SCENE_CONFIG_CUH
+#ifndef CONFIG_SCENE_CONFIG_CUH
+#define CONFIG_SCENE_CONFIG_CUH
 
 // ------------------------------------------------------------
 // Scene selection bitmask
@@ -54,4 +54,4 @@ __host__ __device__ inline bool sceneEnabled(unsigned bit) {
 static constexpr int MAX_QUADS = 16; ///< Maximum quads in scene
 static constexpr int MAX_SPHERES = 16; ///< Maximum spheres in scene
 
-#endif // SCENES_SCENE_CONFIG_CUH
+#endif // CONFIG_SCENE_CONFIG_CUH
