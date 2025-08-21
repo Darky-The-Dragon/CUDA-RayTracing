@@ -11,7 +11,7 @@
 //   P(u, v) = position + u * spanU + v * spanV, with u,v in [0, 1]
 //
 // Notes:
-//   - spanU and spanV must not be colinear.
+//   - spanU and spanV must not be co-linear.
 //   - The normal is computed using the right-hand rule: normalize(spanU × spanV).
 //
 // Supports ray–quad intersection testing using a Möller–Trumbore-style method.

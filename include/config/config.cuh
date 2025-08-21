@@ -31,24 +31,24 @@ struct RenderConfig {
     // Lighting / Shadows
     // ------------------------------------------------------------------------
 
-    bool useSoftShadows = true;    ///< Enable/disable soft shadow sampling.
-    int  softShadowSamples = 16;   ///< Number of shadow rays per sample.
+    bool useSoftShadows = true; ///< Enable/disable soft shadow sampling.
+    int softShadowSamples = 16; ///< Number of shadow rays per sample.
 
     // ------------------------------------------------------------------------
     // Post-processing
     // ------------------------------------------------------------------------
 
-    bool enablePostFX = false;     ///< Master toggle for post-processing.
-    bool useBilateral = false;     ///< If true, use bilateral filter instead of Gaussian.
+    bool enablePostFX = false; ///< Master toggle for post-processing.
+    bool useBilateral = false; ///< If true, use bilateral filter instead of Gaussian.
 
     // Gaussian filter parameters
-    int   gaussianRadius = 2;      ///< Kernel radius for Gaussian blur.
-    float gaussianSigma  = 1.2f;   ///< Standard deviation (spread) of Gaussian kernel.
+    int gaussianRadius = 2; ///< Kernel radius for Gaussian blur.
+    float gaussianSigma = 1.2f; ///< Standard deviation (spread) of Gaussian kernel.
 
     // Bilateral filter parameters
-    int   bilateralRadius      = 3;    ///< Kernel radius for bilateral filter.
-    float bilateralSigmaSpatial = 2.0f;///< Spatial sigma (distance falloff in pixels).
-    float bilateralSigmaRange   = 24.0f;///< Range sigma (intensity/color falloff).
+    int bilateralRadius = 3; ///< Kernel radius for bilateral filter.
+    float bilateralSigmaSpatial = 2.0f; ///< Spatial sigma (distance falloff in pixels).
+    float bilateralSigmaRange = 24.0f; ///< Range sigma (intensity/color falloff).
 };
 
 #endif // CONFIG_CONFIG_CUH

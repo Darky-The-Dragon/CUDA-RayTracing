@@ -6,7 +6,7 @@
  */
 
 #include "core/camera.cuh"
-#include "../include/config/defaults.cuh"
+#include "config/defaults.cuh"
 #include "rendering/shader.cuh"
 #include "scenes/world_build.cuh"
 #include "debug/debug_utils.cuh"
@@ -66,6 +66,11 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     WorldBuffers W;
     buildWorld(W);
 
+    SceneGeom G{
+        W.quads, W.numQuads,
+        W.spheres, W.numSpheres
+    };
+
     // -------------------------
     // Intersect & keep nearest
     // -------------------------
@@ -95,17 +100,22 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     }
 
     // -------------------------
-    // Shade or fallback to background
+    // Shading (unified)
     // -------------------------
-    //const Vec3 out = hit.hit
-    //                     ? shadeLambertAll(hit, light, W.quads, W.numQuads, W.spheres, W.numSpheres)
-    //                     : bg;
+    const int softSamples = defaultUseSoftShadows() ? defaultSoftShadowSamples() : 0; // 0 = hard
+    constexpr int maxDepth = 2;
 
-    uint32_t seed = (x * 1973u + y * 9277u + 89173u);
-    const Vec3 out = hit.hit
-      ? shadeLambertSoftAll(hit, light, W.quads, W.numQuads, W.spheres, W.numSpheres,
-                            seed, /*samples=*/16)
-      : bg;
+    // Per-pixel RNG seed
+    uint32_t seed = 0u
+                    ^ (0x9E3779B1u * (static_cast<uint32_t>(x) + 1u))
+                    ^ (0x85EBCA77u * (static_cast<uint32_t>(y) + 1u));
 
-    buffer[idx] = toUChar3(out);
+    // shadeSurface returns gamma-encoded color in [0,1]
+    const Vec3 color = shadeSurface(
+        hit, ray, light, G,
+        seed, maxDepth, softSamples,
+        bg
+    );
+
+    buffer[idx] = toUChar3(color);
 }

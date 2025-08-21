@@ -76,10 +76,21 @@ __host__ __device__ inline void buildWorld(WorldBuffers &W) {
     // ------------------------------------------------
     if (W.numSpheres < MAX_SPHERES) {
         W.spheres[W.numSpheres++] = Sphere(
-            Vec3(0.0f, +1.25f, 0.0f),   // center X left/right | Y up/down | Z front/backwards
-            0.40f,                       // radius
-            Materials::GreenDiffuse()   // material
+            Vec3(0.0f, +1.25f, 0.0f), // center X left/right | Y up/down | Z front/backwards
+            0.40f, // radius
+            Materials::GreenDiffuse() // material
         );
+        // mirror sphere
+        W.spheres[W.numSpheres++] = Sphere(
+            Vec3(0.0f, 0.5f, -1.1f),
+            0.35f,
+            Material(REFLECTIVE, make_uchar3(255, 255, 255), 0.0f));
+
+        // glass sphere
+        W.spheres[W.numSpheres++] = Sphere(
+            Vec3(0.7f, 0.5f, -1.3f),
+            0.30f,
+            Material(REFRACTIVE, make_uchar3(255, 255, 255), 0.0f, 1.52f, 0.0f));
     }
 
     // ------------------------------------------------

@@ -31,7 +31,7 @@ enum SceneMask : unsigned {
 // ------------------------------------------------------------
 // By default, only the Cornell box scene is enabled.
 // Override via compiler definition:
-//   -DSCENE_ENABLED_MASK="(SCENE_CORNELL | SCENE_SPHERES)"
+//   -SCENE_ENABLED_MASK="(SCENE_CORNELL | SCENE_SPHERES)"
 #ifndef SCENE_ENABLED_MASK
 #define SCENE_ENABLED_MASK (SCENE_CORNELL)
 #endif

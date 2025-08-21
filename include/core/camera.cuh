@@ -54,18 +54,19 @@ struct Camera {
 ///
 /// @note If your raster uses top-left origin, flip ndcY after computing it.
 /// ----------------------------------------------------------------------------
-__host__ __device__ inline Ray generatePrimaryRay(
-    const Camera &cam, int x, int y, int width, int height) {
+__host__ __device__
+inline Ray generatePrimaryRay(
+    const Camera &cam, const unsigned int x, const unsigned int y, const int width, const int height) {
     // Basic guards
-    const float w = static_cast<float>(width);
-    const float h = static_cast<float>(height);
+    const auto w = static_cast<float>(width);
+    const auto h = static_cast<float>(height);
     const float aspect = (h > 0.0f) ? (w / h) : 1.0f;
     const float fov_rad = cam.fov_deg * 3.14159265f / 180.0f;
     const float half_tan = tanf(0.5f * fov_rad);
 
     // NDC in [-1, 1]
-    float ndcX = ((x + 0.5f) / w) * 2.0f - 1.0f;
-    float ndcY = ((y + 0.5f) / h) * 2.0f - 1.0f;
+    float ndcX = ((static_cast<float>(x) + 0.5f) / w) * 2.0f - 1.0f;
+    float ndcY = ((static_cast<float>(y) + 0.5f) / h) * 2.0f - 1.0f;
 
     // For top-left origin, uncomment:
     // ndcY = -ndcY;
@@ -87,7 +88,7 @@ __host__ __device__ inline Ray generatePrimaryRay(
     const Vec3 U = R.cross(F).normalize(); // Corrected up vector
 
     const Vec3 dir = (F + R * ndcX + U * ndcY).normalize();
-    return Ray(cam.position, dir);
+    return Ray{cam.position, dir};
 }
 
 #endif // CORE_CAMERA_CUH

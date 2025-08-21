@@ -47,7 +47,7 @@ struct Plane {
     /// @param color        RGB color for quick debug shading.
     /// ------------------------------------------------------------------------
     __host__ __device__
-    Plane(const Vec3 &pointOnPlane, const Vec3 &normal, uchar3 color)
+    Plane(const Vec3 &pointOnPlane, const Vec3 &normal, const uchar3 color)
         : planePoint(pointOnPlane),
           normalVector(normal.normalize()),
           surfaceColor(color) {
@@ -90,7 +90,6 @@ struct Plane {
 
     /// ------------------------------------------------------------------------
     /// @brief Get the plane's surface normal (unit length).
-    /// @param hitPoint The point on the plane (ignored; plane normal is constant).
     /// @return Normalized surface normal vector.
     /// ------------------------------------------------------------------------
     __host__ __device__

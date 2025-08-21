@@ -62,14 +62,14 @@ __host__ __device__ inline uchar3 defaultBackgroundU8() {
 /// @return A Light configured with the defaults above.
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline Light defaultLight() {
-    return Light(
+    return Light{
         POINT,
         Vec3(0.0f, -0.9f, 0.0f),
         Vec3(0.0f, -1.0f, 0.0f),
         Colors::RGB(255, 255, 100),
         3.0f, 10.0f, 0.0f,
         0.20f
-    );
+    };
 }
 
 // ---------------------------------------------------------------------------

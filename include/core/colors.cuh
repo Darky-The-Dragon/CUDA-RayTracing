@@ -21,11 +21,17 @@ namespace Colors {
     // Preset Colors
     // ------------------------------------------------------------------------
     __host__ __device__ inline uchar3 Red() { return make_uchar3(255, 0, 0); }
+
     __host__ __device__ inline uchar3 Green() { return make_uchar3(0, 255, 0); }
+
     __host__ __device__ inline uchar3 Blue() { return make_uchar3(0, 0, 255); }
+
     __host__ __device__ inline uchar3 White() { return make_uchar3(255, 255, 255); }
+
     __host__ __device__ inline uchar3 Black() { return make_uchar3(0, 0, 0); }
+
     __host__ __device__ inline uchar3 LightGray() { return make_uchar3(211, 211, 211); }
+
     __host__ __device__ inline uchar3 LightBlue() { return make_uchar3(140, 210, 255); }
 
     // ------------------------------------------------------------------------

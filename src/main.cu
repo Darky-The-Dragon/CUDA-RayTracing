@@ -17,7 +17,7 @@ namespace fs = std::filesystem;
 #include "rendering/raytrace.cuh"
 #include "rendering/cpu_raytracer.cuh"
 #include "rendering/postprocess.cuh"
-#include "../include/config/defaults.cuh"
+#include "config/defaults.cuh"
 
 // ---- Image size (tweak freely)
 static constexpr int WIDTH = 1024;
@@ -51,15 +51,6 @@ static bool writePPM(const std::string &path, const uchar3 *pixels, int w, int h
     return true;
 }
 
-// ---- Small helper to run optional post-processing in-place
-static void runPostFXIfEnabled(std::vector<uchar3>& img, int w, int h) {
-    if (!defaultEnablePostFX()) return;
-
-    // Choose ONE. Bilateral preserves edges better for shadow noise; Gaussian is faster.
-    //gaussianBlurRGB(img.data(), w, h, ppGaussianRadius(), ppGaussianSigma());
-    bilateralFilterRGB(img.data(), w, h, ppBilateralRadius(), ppSigmaSpatial(), ppSigmaRange());
-}
-
 int main() {
     const size_t image_size = size_t(WIDTH) * size_t(HEIGHT) * sizeof(uchar3);
 
@@ -81,12 +72,18 @@ int main() {
     std::cout << "[GPU DEBUG] Threads per block: " << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
     std::cout << "[GPU DEBUG] Total blocks: " << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
     std::cout << "[GPU DEBUG] Total threads: "
-              << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
+            << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
 
     cudaEvent_t start{}, stop{};
     CUDA_CHECK(cudaEventCreate(&start));
     CUDA_CHECK(cudaEventCreate(&stop));
+    size_t cur = 0, want = 16384; // 16 KB is usually fine for 1–2 bounces
+    CUDA_CHECK(cudaDeviceGetLimit(&cur, cudaLimitStackSize));
+    std::cout << "[CUDA] current stack: " << cur << " bytes\n";
 
+    CUDA_CHECK(cudaDeviceSetLimit(cudaLimitStackSize, want));
+    CUDA_CHECK(cudaDeviceGetLimit(&cur, cudaLimitStackSize));
+    std::cout << "[CUDA] new stack:     " << cur << " bytes\n";
     CUDA_CHECK(cudaEventRecord(start));
     raytrace<<<blocksPerGrid, threadsPerBlock>>>(d_buffer, WIDTH, HEIGHT);
     CUDA_CHECK(cudaGetLastError());
@@ -109,19 +106,31 @@ int main() {
         std::cout << "[INFO] GPU image saved to: " << gpuPath << "\n";
     }
 
-    // Post-FX on GPU image
-    std::vector<uchar3> h_gpu_pp = h_gpu;
-    const auto gpuPPStart = std::chrono::high_resolution_clock::now();
-    runPostFXIfEnabled(h_gpu_pp, WIDTH, HEIGHT);
-    const auto gpuPPEnd = std::chrono::high_resolution_clock::now();
-    const double gpuPPms = std::chrono::duration<double, std::milli>(gpuPPEnd - gpuPPStart).count();
+    // ---- GPU POST-FX on device, then SAVE _pp
+    if (defaultEnablePostFX()) {
+        PostFX::Params fx{};
+        fx.filter = PostFX::Filter::Bilateral; // or Bilateral when ready on GPU
+        fx.gaussianRadius = ppGaussianRadius();
+        fx.gaussianSigma = ppGaussianSigma();
+        fx.bilateralRadius = ppBilateralRadius();
+        fx.bilateralSigmaSpatial = ppSigmaSpatial();
+        fx.bilateralSigmaRange = ppSigmaRange();
 
-    const std::string gpuPPPath = outDir + "/output_gpu_pp.ppm";
-    if (!writePPM(gpuPPPath, h_gpu_pp.data(), WIDTH, HEIGHT)) {
-        std::cerr << "[ERROR] Failed to write GPU post-processed image to: " << gpuPPPath << "\n";
-    } else {
-        std::cout << "[INFO] GPU post-processed image saved to: " << gpuPPPath
-                  << (defaultEnablePostFX() ? "  (Post-FX on, " + std::to_string(gpuPPms) + " ms)" : "  (Post-FX off)") << "\n";
+        PostFX::Timings fxT{};
+        PostFX::applyGPU(d_buffer, WIDTH, HEIGHT, fx, &fxT);
+        std::cout << "[TIMING] GPU post-FX took " << fxT.ms << " ms\n";
+    }
+
+    // Copy post‑processed device image and save to output_gpu_pp.ppm
+    {
+        std::vector<uchar3> h_gpu_pp(WIDTH * HEIGHT);
+        CUDA_CHECK(cudaMemcpy(h_gpu_pp.data(), d_buffer, image_size, cudaMemcpyDeviceToHost));
+
+        const std::string gpuPPPath = outDir + "/output_gpu_pp.ppm";
+        if (!writePPM(gpuPPPath, h_gpu_pp.data(), WIDTH, HEIGHT))
+            std::cerr << "[ERROR] Failed to write GPU post-processed image to: " << gpuPPPath << "\n";
+        else
+            std::cout << "[INFO] GPU post-processed image saved to: " << gpuPPPath << "\n";
     }
 
     // ---------------- CPU Raytracer ----------------
@@ -141,19 +150,28 @@ int main() {
         std::cout << "[INFO] CPU image saved to: " << cpuPath << "\n";
     }
 
-    // Post-FX on CPU image
-    std::vector<uchar3> h_cpu_pp = h_cpu;
-    const auto cpuPPStart = std::chrono::high_resolution_clock::now();
-    runPostFXIfEnabled(h_cpu_pp, WIDTH, HEIGHT);
-    const auto cpuPPEnd = std::chrono::high_resolution_clock::now();
-    const double cpuPPms = std::chrono::duration<double, std::milli>(cpuPPEnd - cpuPPStart).count();
+    // ---- CPU POST-FX on a copy, then SAVE _pp
+    std::vector<uchar3> h_cpu_pp = h_cpu; // keep raw intact
+    double cpuPPms = 0.0;
+    if (defaultEnablePostFX()) {
+        PostFX::Params fx{};
+        fx.filter = PostFX::Filter::Bilateral; // match GPU choice for parity
+        fx.gaussianRadius = ppGaussianRadius();
+        fx.gaussianSigma = ppGaussianSigma();
+        fx.bilateralRadius = ppBilateralRadius();
+        fx.bilateralSigmaSpatial = ppSigmaSpatial();
+        fx.bilateralSigmaRange = ppSigmaRange();
 
-    const std::string cpuPPPath = outDir + "/output_cpu_pp.ppm";
-    if (!writePPM(cpuPPPath, h_cpu_pp.data(), WIDTH, HEIGHT)) {
-        std::cerr << "[ERROR] Failed to write CPU post-processed image to: " << cpuPPPath << "\n";
-    } else {
-        std::cout << "[INFO] CPU post-processed image saved to: " << cpuPPPath
-                  << (defaultEnablePostFX() ? "  (Post-FX on, " + std::to_string(cpuPPms) + " ms)" : "  (Post-FX off)") << "\n";
+        PostFX::Timings fxT{};
+        PostFX::applyCPU(h_cpu_pp.data(), WIDTH, HEIGHT, fx, &fxT);
+        cpuPPms = fxT.ms;
+        std::cout << "[TIMING] CPU post-FX took " << cpuPPms << " ms\n";
+    } {
+        const std::string cpuPPPath = outDir + "/output_cpu_pp.ppm";
+        if (!writePPM(cpuPPPath, h_cpu_pp.data(), WIDTH, HEIGHT))
+            std::cerr << "[ERROR] Failed to write CPU post-processed image to: " << cpuPPPath << "\n";
+        else
+            std::cout << "[INFO] CPU post-processed image saved to: " << cpuPPPath << "\n";
     }
 
     // ---------------- Cleanup ----------------

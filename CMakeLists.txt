@@ -51,9 +51,10 @@ set(HEADERS
 
 # Source files
 set(SOURCES
-        src/main.cu
-        src/raytracer.cu
         src/cpu_raytracer.cu
+        src/main.cu
+        src/postprocess.cu
+        src/raytracer.cu
 )
 
 # ------------------------------

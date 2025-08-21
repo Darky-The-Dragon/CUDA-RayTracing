@@ -45,7 +45,7 @@ struct Light {
     float intensity; ///< Brightness multiplier.
     float range; ///< Effective range for attenuation (POINT/SPOT only).
     float coneAngle; ///< Cone half-angle in degrees (SPOT only).
-    float radius;     ///< Area radius (world units). 0 => hard shadows.
+    float radius; ///< Area radius (world units). 0 => hard shadows.
 
     /// ----------------------------------------------------------------------------
     /// @brief Default constructor — creates a white point light pointing downward.
@@ -68,7 +68,7 @@ struct Light {
           intensity(1.0f),
           range(10.0f),
           coneAngle(30.0f),
-          radius(0.0f){
+          radius(0.0f) {
     }
 
     /// ----------------------------------------------------------------------------
@@ -95,7 +95,7 @@ struct Light {
           intensity(intensity),
           range(range),
           coneAngle(coneAngle),
-          radius(radius){
+          radius(radius) {
     }
 };
 

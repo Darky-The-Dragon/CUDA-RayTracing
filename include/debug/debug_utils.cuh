@@ -71,7 +71,7 @@ __host__ __device__ inline bool renderLightDebug(const Ray &ray, const Light &li
 /// @brief Render an arrow body to indicate the light direction.
 ///
 /// Enabled when DEBUG_DRAW_LIGHT_DIRECTION == 1.
-/// For DIRECTIONAL/SPOT lights, approximates a short arrow body by testing
+/// For DIRECTIONAL/SPOTLIGHTS, approximates a short arrow body by testing
 /// a small sphere centered halfway along the arrow path.
 ///
 /// @param ray       Current camera/sample ray.
