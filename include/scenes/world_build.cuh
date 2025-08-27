@@ -16,7 +16,7 @@
 #ifndef SCENES_WORLD_BUILD_CUH
 #define SCENES_WORLD_BUILD_CUH
 
-#include "../config/scene_config.cuh"
+#include "config/scene_config.cuh"
 #include "scenes/cornell_box.cuh"    // Cornell box construction
 #include "geometry/quad.cuh"         // Quad geometry definition
 #include "geometry/sphere.cuh"       // Sphere geometry definition

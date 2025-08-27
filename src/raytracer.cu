@@ -103,6 +103,7 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     // Shading (unified)
     // -------------------------
     const int softSamples = defaultUseSoftShadows() ? defaultSoftShadowSamples() : 0; // 0 = hard
+    const bool useBent    = defaultUseBentShadows();
     constexpr int maxDepth = 2;
 
     // Per-pixel RNG seed
@@ -114,7 +115,7 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     const Vec3 color = shadeSurface(
         hit, ray, light, G,
         seed, maxDepth, softSamples,
-        bg
+        bg, useBent
     );
 
     buffer[idx] = toUChar3(color);

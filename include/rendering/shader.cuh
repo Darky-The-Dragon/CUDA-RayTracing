@@ -2,20 +2,23 @@
 // @file shader.cuh
 // @brief Hit payload, color utilities, light sampling, occlusion, and shading.
 //
-// This header provides compact, reusable blocks shared by CPU & GPU paths:
-//   - SceneGeom: lightweight view of scene geometry buffers
+// This header exposes compact, reusable building blocks shared by CPU & GPU:
+//   - SceneGeom: lightweight view over scene buffers (no ownership)
 //   - Hit: intersection payload
 //   - Color conversions and gamma encoding
-//   - Light sampling for point / directional / spot lights
-//   - Unified shadow-occlusion across quads & spheres
-//   - Unified Lambert shading (hard or soft shadows)
-//   - RNG + concentric-disk sampling (for soft shadows)
-//   - Reflection / refraction helpers and recursive surface shader
+//   - Light sampling (point / directional / spot)
+//   - Shadow occlusion tests across quads & spheres
+//   - Soft-shadow visibility (stratified disk sampling)
+//   - Lambert shading (hard/soft shadows, unified)
+//   - RNG + concentric-disk mapping
+//   - Reflection / refraction helpers
+//   - Closest-hit traversal & unified recursive surface shader
+//   - Optional “bent” shadow visibility through a single refractor
 //
 // Design goals:
-//   - Header-only, CUDA-friendly (__host__ __device__ where hot)
+//   - Header-only, CUDA-friendly (__host__ __device__ on hot paths)
 //   - Clear names (no cryptic abbreviations)
-//   - No magic numbers: all epsilons, infinities, constants named
+//   - No magic numbers (all eps/infinities named)
 //   - Backward-compatible wrappers preserved
 // ============================================================================
 
@@ -33,11 +36,14 @@
 // Numerical constants (single place to tweak)
 // ------------------------------------------------------------
 constexpr float kFloatEps = 1.0e-6f; ///< Small epsilon for numeric guards.
-constexpr float kShadowRayBias = 1.0e-3f; ///< Offset to avoid self-intersections.
-constexpr float kShadowEndPad = 1.0e-4f; ///< Shrink max distance for shadows.
+constexpr float kHitMinT = 1.0e-4f; ///< Minimum valid hit distance (avoid self-hits).
+constexpr float kShadowRayBias = 1.0e-3f; ///< Offset along normal for shadow/secondary rays.
+constexpr float kShadowEndPad = 1.0e-4f; ///< Shrink tested max distance for shadow rays.
 constexpr float kHuge = 1.0e20f; ///< A very large float sentinel.
 constexpr float kPi = 3.14159265358979323846f; ///< π
 constexpr float kInv255 = 1.0f / 255.0f; ///< 1/255 convenience.
+constexpr float kMinInvDistanceSq = 1.0e-3f; ///< Min denominator for 1/d^2 attenuation.
+constexpr float kDirectionalShadowDistance = 1.0e6f; ///< Finite distance used for directional-light sampling.
 
 // ============================================================================
 // Scene view (centralized, no ownership)
@@ -101,8 +107,23 @@ __host__ __device__ inline uchar3 toUChar3(const Vec3 &linear) {
 /// @return Gamma-encoded RGB in 0..1.
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline Vec3 gammaEncode(const Vec3 &linear) {
-    return Vec3(sqrtf(linear.x), sqrtf(linear.y), sqrtf(linear.z));
+    return Vec3{sqrtf(linear.x), sqrtf(linear.y), sqrtf(linear.z)};
 }
+
+// ============================================================================
+// Forward declarations (helpers referenced before their definition)
+// ============================================================================
+
+//// --------------------------------------------------------------------------
+//// @brief Visibility toward a specific light sample using a single refraction.
+//// @param P            Shading point (world space).
+//// @param N            Surface normal at P (for origin offset).
+//// @param lightSample  World-space position on the emitter (area or point).
+//// @param G            Scene geometry (quads + spheres).
+//// @return Visibility in [0,1].
+//// --------------------------------------------------------------------------
+__host__ __device__ inline float visibilityBentOneRefractor(
+    const Vec3 &P, const Vec3 &N, const Vec3 &lightSample, const SceneGeom &G);
 
 // ============================================================================
 // Light sampling (direction L, attenuation, distance)
@@ -123,13 +144,11 @@ __host__ __device__ inline Vec3 gammaEncode(const Vec3 &linear) {
 __host__ __device__ inline void sampleLight(
     const Light &light, const Vec3 &P,
     Vec3 &L, float &attenuation, float &distToLight) {
-    constexpr float kMinDist2 = 1.0e-3f;
-
     if (light.type == POINT) {
         const Vec3 P_to_L = light.position - P;
         distToLight = P_to_L.length();
         L = (distToLight > 0.0f) ? (P_to_L / distToLight) : Vec3(0.0f);
-        attenuation = 1.0f / fmaxf(distToLight * distToLight, kMinDist2);
+        attenuation = 1.0f / fmaxf(distToLight * distToLight, kMinInvDistanceSq);
         return;
     }
 
@@ -144,7 +163,7 @@ __host__ __device__ inline void sampleLight(
     const Vec3 P_to_L = light.position - P;
     distToLight = P_to_L.length();
     L = (distToLight > 0.0f) ? (P_to_L / distToLight) : Vec3(0.0f);
-    attenuation = 1.0f / fmaxf(distToLight * distToLight, kMinDist2);
+    attenuation = 1.0f / fmaxf(distToLight * distToLight, kMinInvDistanceSq);
 }
 
 // ============================================================================
@@ -211,8 +230,7 @@ __host__ __device__ inline uint32_t wanghash(uint32_t s) {
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline float rand01(uint32_t &state) {
     state = wanghash(state);
-    // Keep 24 LSBs → divide by 2^24
-    return (state & 0x00FFFFFFu) / 16777216.0f;
+    return static_cast<float>(state & 0x00FFFFFFu) / 16777216.0f; // 2^24
 }
 
 /// ----------------------------------------------------------------------------
@@ -270,18 +288,29 @@ __host__ __device__ inline void sampleDisk(float u1, float u2, float radius, flo
 /// @param G        Scene geometry view.
 /// @param seed     RNG seed for sampling.
 /// @param samples  Number of stratified samples; <=1 falls back to hard shadows.
+/// @param useBentShadows Whether to use refractor-aware ("bent") visibility.
 /// @return Fraction of unoccluded samples in [0,1].
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline float softShadowVisibility(
     const Vec3 &P, const Vec3 &N, const Light &light,
-    const SceneGeom &G, uint32_t seed, int samples) {
+    const SceneGeom &G, uint32_t seed, const int samples,
+    const bool useBentShadows) {
     // Hard-shadow fast path
     if (light.radius <= 0.0f || samples <= 1) {
         Vec3 L;
         float att = 1.0f;
         float distToLight = kHuge;
         sampleLight(light, P, L, att, distToLight);
-        return isOccluded(P, N, L, distToLight, G) ? 0.0f : 1.0f;
+
+        if (!useBentShadows) {
+            return isOccluded(P, N, L, distToLight, G) ? 0.0f : 1.0f;
+        } else {
+            // Build a single sample position for the point/directional light
+            const Vec3 samplePos = (light.type == DIRECTIONAL)
+                                       ? (P + (-light.direction).normalize() * kDirectionalShadowDistance)
+                                       : light.position;
+            return visibilityBentOneRefractor(P, N, samplePos, G);
+        }
     }
 
     // Emitter disk frame facing point P
@@ -294,6 +323,7 @@ __host__ __device__ inline float softShadowVisibility(
 
     // √N x √N stratified sampling
     const int gridDim = static_cast<int>(ceilf(sqrtf(static_cast<float>(samples))));
+    const float invGrid = (gridDim > 0) ? (1.0f / static_cast<float>(gridDim)) : 0.0f;
     int taken = 0;
     int visible = 0;
 
@@ -302,24 +332,26 @@ __host__ __device__ inline float softShadowVisibility(
             const float jitterX = rand01(seed);
             const float jitterY = rand01(seed);
 
-            const float u = (gx + jitterX) / gridDim;
-            const float v = (gy + jitterY) / gridDim;
+            const float u = (static_cast<float>(gx) + jitterX) * invGrid;
+            const float v = (static_cast<float>(gy) + jitterY) * invGrid;
 
             float diskX = 0.0f, diskY = 0.0f;
             sampleDisk(u, v, light.radius, diskX, diskY);
             const Vec3 emitterSample = light.position + tangent * diskX + bitangent * diskY;
 
-            Vec3 L = emitterSample - P;
-            float distToSample = L.length();
-            if (distToSample > kFloatEps) L = L / distToSample;
+            if (!useBentShadows) {
+                Vec3 L = emitterSample - P;
+                const float distToSample = L.length();
+                if (distToSample > kFloatEps) L = L / distToSample;
 
-            if (!isOccluded(P, N, L, distToSample, G)) {
-                ++visible;
+                if (!isOccluded(P, N, L, distToSample, G)) ++visible;
+            } else {
+                if (visibilityBentOneRefractor(P, N, emitterSample, G) > 0.5f) ++visible;
             }
             ++taken;
         }
     }
-    return static_cast<float>(visible) / static_cast<float>(samples);
+    return (samples > 0) ? static_cast<float>(visible) / static_cast<float>(samples) : 0.0f;
 }
 
 // ============================================================================
@@ -334,12 +366,14 @@ __host__ __device__ inline float softShadowVisibility(
 /// @param seed      RNG seed for soft-shadow sampling.
 /// @param samples   Number of shadow samples (0/1 → hard shadows).
 /// @param ambient   Ambient term (linear RGB).
+/// @param useBentShadows Whether to use refractor-aware ("bent") visibility.
 /// @return Gamma-encoded RGB in [0,1].
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline Vec3 shadeLambertUnified(
     const Hit &h, const Light &light, const SceneGeom &G,
-    uint32_t seed, int samples,
-    const Vec3 &ambient = Vec3(0.03f, 0.03f, 0.03f)) {
+    const uint32_t seed, const int samples,
+    const Vec3 &ambient = Vec3(0.03f, 0.03f, 0.03f),
+    bool useBentShadows = false) {
     if (!h.hit) return Vec3(0.0f);
 
     Vec3 L(0.0f);
@@ -347,7 +381,7 @@ __host__ __device__ inline Vec3 shadeLambertUnified(
     float distToLight = kHuge;
     sampleLight(light, h.P, L, attenuation, distToLight);
 
-    const float visibility = softShadowVisibility(h.P, h.N, light, G, seed, samples);
+    const float visibility = softShadowVisibility(h.P, h.N, light, G, seed, samples, useBentShadows);
     const float nDotL = fmaxf(0.0f, h.N.dot(L));
     const Vec3 base = toFloat3(h.mat.color);
     const Vec3 Li = toFloat3(light.color) * light.intensity * attenuation;
@@ -364,10 +398,10 @@ __host__ __device__ inline Vec3 shadeLambertUnified(
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline Vec3 shadeLambert(
     const Hit &h, const Light &light,
-    const Quad *quads, int numQuads,
+    const Quad *quads, const int numQuads,
     const Vec3 &ambient = Vec3(0.03f, 0.03f, 0.03f)) {
-    SceneGeom G{quads, numQuads, nullptr, 0};
-    return shadeLambertUnified(h, light, G, /*seed*/0u, /*samples*/0, ambient);
+    const SceneGeom G{quads, numQuads, nullptr, 0};
+    return shadeLambertUnified(h, light, G, /*seed*/0u, /*samples*/0, ambient, false);
 }
 
 /// ----------------------------------------------------------------------------
@@ -375,11 +409,11 @@ __host__ __device__ inline Vec3 shadeLambert(
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline Vec3 shadeLambertAll(
     const Hit &h, const Light &light,
-    const Quad *quads, int numQuads,
-    const Sphere *sphs, int numSpheres,
+    const Quad *quads, const int numQuads,
+    const Sphere *sphs, const int numSpheres,
     const Vec3 &ambient = Vec3(0.03f, 0.03f, 0.03f)) {
-    SceneGeom G{quads, numQuads, sphs, numSpheres};
-    return shadeLambertUnified(h, light, G, /*seed*/0u, /*samples*/0, ambient);
+    const SceneGeom G{quads, numQuads, sphs, numSpheres};
+    return shadeLambertUnified(h, light, G, /*seed*/0u, /*samples*/0, ambient, false);
 }
 
 /// ----------------------------------------------------------------------------
@@ -387,12 +421,12 @@ __host__ __device__ inline Vec3 shadeLambertAll(
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline Vec3 shadeLambertSoftAll(
     const Hit &h, const Light &light,
-    const Quad *quads, int numQuads,
-    const Sphere *sphs, int numSpheres,
-    uint32_t seed, int samples = 8,
+    const Quad *quads, const int numQuads,
+    const Sphere *sphs, const int numSpheres,
+    const uint32_t seed, const int samples = 8,
     const Vec3 &ambient = Vec3(0.03f, 0.03f, 0.03f)) {
-    SceneGeom G{quads, numQuads, sphs, numSpheres};
-    return shadeLambertUnified(h, light, G, seed, samples, ambient);
+    const SceneGeom G{quads, numQuads, sphs, numSpheres};
+    return shadeLambertUnified(h, light, G, seed, samples, ambient, false);
 }
 
 // ============================================================================
@@ -435,8 +469,8 @@ __host__ __device__ inline bool refractDir(const Vec3 &I, const Vec3 &N, float e
 __host__ __device__ inline float fresnelSchlick(float cosTheta, float ior1, float ior2) {
     float R0 = (ior1 - ior2) / (ior1 + ior2);
     R0 = R0 * R0;
-    const float oneMinusC = 1.0f - cosTheta;
-    return R0 + (1.0f - R0) * (oneMinusC * oneMinusC * oneMinusC * oneMinusC * oneMinusC);
+    const float m = 1.0f - cosTheta;
+    return R0 + (1.0f - R0) * (m * m * m * m * m);
 }
 
 // ============================================================================
@@ -457,7 +491,7 @@ __host__ __device__ inline bool traceClosest(
     // Quads
     for (int i = 0; i < G.numQuads; ++i) {
         float tHit = 0.0f;
-        if (G.quads[i].intersect(ray, tHit) && tHit > 1.0e-4f && tHit < outHit.t) {
+        if (G.quads[i].intersect(ray, tHit) && tHit > kHitMinT && tHit < outHit.t) {
             outHit.hit = true;
             outHit.t = tHit;
             outHit.P = ray.at(tHit);
@@ -469,7 +503,7 @@ __host__ __device__ inline bool traceClosest(
     for (int i = 0; i < G.numSpheres; ++i) {
         float tHit = 0.0f;
         if (G.spheres[i].intersect(ray.origin, ray.direction, tHit) &&
-            tHit > 1.0e-4f && tHit < outHit.t) {
+            tHit > kHitMinT && tHit < outHit.t) {
             outHit.hit = true;
             outHit.t = tHit;
             outHit.P = ray.at(tHit);
@@ -500,13 +534,14 @@ __host__ __device__ inline bool traceClosest(
 /// @param maxDepth           Remaining recursion depth (>=0).
 /// @param softShadowSamples  Shadow samples (0/1 → hard shadows).
 /// @param bgLinear           Background color in linear RGB.
+/// @param useBentShadows     Whether to use refractor-aware ("bent") visibility.
 /// @return Gamma-encoded RGB in [0,1].
 ///  ----------------------------------------------------------------------------
 __host__ __device__ inline Vec3 shadeSurface(
     const Hit &primaryHit, const Ray &viewRay,
     const Light &light, const SceneGeom &G,
-    uint32_t seed, int maxDepth, int softShadowSamples,
-    const Vec3 &bgLinear) {
+    const uint32_t seed, const int maxDepth, const int softShadowSamples,
+    const Vec3 &bgLinear, const bool useBentShadows) {
     if (!primaryHit.hit) return bgLinear;
 
     const Material &mat = primaryHit.mat;
@@ -514,7 +549,10 @@ __host__ __device__ inline Vec3 shadeSurface(
 
     // Diffuse: use unified Lambert (handles hard/soft shadows)
     if (mat.type == DIFFUSE) {
-        return shadeLambertUnified(primaryHit, light, G, seed, softShadowSamples);
+        return shadeLambertUnified(primaryHit, light, G,
+                                   seed, softShadowSamples,
+                                   Vec3(0.03f, 0.03f, 0.03f),
+                                   useBentShadows);
     }
 
     // Depth exhausted → tiny ambient fallback
@@ -529,7 +567,9 @@ __host__ __device__ inline Vec3 shadeSurface(
     auto traceAndShade = [&](const Ray &r) -> Vec3 {
         Hit h2{};
         if (traceClosest(r, G, h2)) {
-            return shadeSurface(h2, r, light, G, wanghash(seed), maxDepth - 1, softShadowSamples, bgLinear);
+            return shadeSurface(h2, r, light, G,
+                                wanghash(seed), maxDepth - 1, softShadowSamples,
+                                bgLinear, useBentShadows);
         }
         return bgLinear;
     };
@@ -547,11 +587,11 @@ __host__ __device__ inline Vec3 shadeSurface(
 
     // Refraction + Fresnel mix
     if (mat.type == REFRACTIVE) {
-        const float iorAir = 1.0f;
+        constexpr float iorAir = 1.0f;
         float eta = iorAir / fmaxf(kFloatEps, mat.ior);
         Vec3 Nf = N;
         float cosI = V.dot(N);
-        bool entering = (cosI >= 0.0f);
+        const bool entering = (cosI >= 0.0f);
 
         if (!entering) {
             eta = mat.ior / iorAir;
@@ -577,7 +617,7 @@ __host__ __device__ inline Vec3 shadeSurface(
             Kr = 1.0f; // Total internal reflection
         }
 
-        // Use opacity as simple transmission control (0 = fully transparent)
+        // Opacity: simple transmission control (0 = fully transparent)
         const float kt = (1.0f - Kr) * (1.0f - fminf(1.0f, mat.opacity));
         Vec3 linear = Rc * Kr + Tc * kt;
 
@@ -587,8 +627,179 @@ __host__ __device__ inline Vec3 shadeSurface(
         return gammaEncode(linear);
     }
 
-    // Fallback (should not happen)
+    // Fallback (shouldn’t happen)
     return gammaEncode(base);
+}
+
+// ============================================================================
+// Bent Shadow (one refractor) — optional, keep if you want refractive shadows
+// ============================================================================
+namespace detail {
+    //// Small numeric guards (shared by host & device)
+    __host__ __device__ inline float epsOrigin() { return 1e-3f; }
+    __host__ __device__ inline float epsExit() { return 1e-4f; }
+    __host__ __device__ inline float farDist() { return 1e30f; }
+
+    /// Which primitive we hit first (for quick classification).
+    enum class HitKind : int { None, Quad, Sphere };
+
+    //// ----------------------------------------------------------------------
+    //// @brief Trace nearest hit along a ray up to maxDist and classify the primitive.
+    //// @param r        Ray to trace.
+    //// @param G        Scene geometry.
+    //// @param maxDist  Maximum distance to consider.
+    //// @param out      [out] Hit payload when any hit occurs.
+    //// @return The kind of primitive hit (None, Quad, Sphere).
+    //// ----------------------------------------------------------------------
+    __host__ __device__ inline HitKind traceClosestKind(
+        const Ray &r, const SceneGeom &G, float maxDist, Hit &out) {
+        out.hit = false;
+        out.t = maxDist;
+        HitKind kind = HitKind::None;
+
+        // Quads (opaque)
+        for (int i = 0; i < G.numQuads; ++i) {
+            float tHit = 0.0f;
+            if (G.quads[i].intersect(r, tHit) &&
+                tHit > 0.0f && tHit < out.t && tHit < (maxDist - kShadowEndPad)) {
+                out.hit = true;
+                out.t = tHit;
+                out.P = r.at(tHit);
+                out.N = G.quads[i].normal;
+                out.mat = G.quads[i].material;
+                kind = HitKind::Quad;
+            }
+        }
+        // Spheres (could be refractive)
+        for (int i = 0; i < G.numSpheres; ++i) {
+            float tHit = 0.0f;
+            if (G.spheres[i].intersect(r.origin, r.direction, tHit) &&
+                tHit > 0.0f && tHit < out.t && tHit < (maxDist - kShadowEndPad)) {
+                out.hit = true;
+                out.t = tHit;
+                out.P = r.at(tHit);
+                out.N = (out.P - G.spheres[i].center).normalize();
+                out.mat = G.spheres[i].material;
+                kind = HitKind::Sphere;
+            }
+        }
+        return kind;
+    }
+
+    //// ----------------------------------------------------------------------
+    //// @brief Find (entry, exit) segment through any sphere along the ray.
+    //// @param r              Ray to test.
+    //// @param G              Scene geometry.
+    //// @param maxDist        Maximum distance to consider.
+    //// @param tEnter         [out] Entry distance.
+    //// @param tExit          [out] Exit distance.
+    //// @param normalAtEnter  [out] Surface normal at entry point.
+    //// @param matOut         [out] Sphere material at entry.
+    //// @return Index of the sphere hit, or -1 if none.
+    ////
+    //// @note Requires Sphere::intersectBoth(ro, rd, t0, t1) to be available.
+    //// ----------------------------------------------------------------------
+    __host__ __device__ inline int traceSphereEntryExit(
+        const Ray &r, const SceneGeom &G, const float maxDist,
+        float &tEnter, float &tExit, Vec3 &normalAtEnter, Material &matOut) {
+        int sphIdx = -1;
+        float tNear = maxDist;
+
+        for (int i = 0; i < G.numSpheres; ++i) {
+            float t0 = 0.0f, t1 = 0.0f;
+            if (G.spheres[i].intersectBoth(r.origin, r.direction, t0, t1)) {
+                // Require overlap with [0, maxDist] and closest entry
+                if (t1 > 0.0f && t0 < maxDist && t0 < tNear) {
+                    tNear = t0;
+                    sphIdx = i;
+                    tEnter = t0;
+                    tExit = t1;
+                }
+            }
+        }
+        if (sphIdx >= 0) {
+            const Vec3 Penter = r.at(tEnter);
+            normalAtEnter = (Penter - G.spheres[sphIdx].center).normalize();
+            matOut = G.spheres[sphIdx].material;
+        }
+        return sphIdx;
+    }
+}
+
+//// --------------------------------------------------------------------------
+//// @brief Visibility toward a specific light sample using a single refraction.
+////
+//// If an opaque object blocks → 0. If a refractive sphere lies between the
+//// point and the light, refract in, refract out, then test the remainder.
+//// No absorption/tint applied here (can be added via Beer–Lambert).
+////
+//// @param P            Shading point (world space).
+//// @param N            Surface normal at P (for origin offset).
+//// @param lightSample  World-space position on the emitter (area or point).
+//// @param G            Scene geometry (quads + spheres).
+//// @return Visibility in [0,1].
+//// --------------------------------------------------------------------------
+__host__ __device__ inline float visibilityBentOneRefractor(
+    const Vec3 &P, const Vec3 &N, const Vec3 &lightSample, const SceneGeom &G) {
+    using namespace detail;
+
+    const Vec3 toSample = lightSample - P;
+    const float fullDist = toSample.length();
+    if (fullDist <= 0.0f) return 1.0f;
+
+    const Vec3 dir0 = toSample / fullDist;
+    Ray r0(P + N * epsOrigin(), dir0);
+
+    // Quick classification: any *opaque* hit before the light?
+    {
+        Hit h{};
+        const HitKind k = traceClosestKind(r0, G, fullDist, h);
+        if (!h.hit) return 1.0f;
+        if (k == HitKind::Quad && h.mat.opacity >= 1.0f) return 0.0f;
+        if (k == HitKind::Sphere && (h.mat.type != REFRACTIVE || h.mat.opacity >= 1.0f)) return 0.0f;
+    }
+
+    // Find a refractive sphere segment (entry/exit)
+    float tEnter = farDist(), tExit = farDist();
+    Vec3 Nenter(0.0f);
+    Material glass{};
+    const int sphIdx = traceSphereEntryExit(r0, G, fullDist, tEnter, tExit, Nenter, glass);
+    if (sphIdx < 0) return 1.0f; // No refractor along the way
+    if (glass.type != REFRACTIVE) return 0.0f; // Intersected non-refractive sphere → treat as blocker
+
+    // Refract into the sphere (air -> glass)
+    constexpr float iorAir = 1.0f;
+    const float iorGlass = fmaxf(1e-3f, glass.ior);
+    const float etaIn = iorAir / iorGlass;
+
+    Vec3 dirInside(0.0f);
+    if (!refractDir(r0.direction, Nenter, etaIn, dirInside)) {
+        // TIR at entry (rare for air->glass) → blocked
+        return 0.0f;
+    }
+
+    // Refract out of the sphere (glass -> air)
+    const Vec3 Pexit = r0.at(tExit);
+    const Vec3 Nexit = (Pexit - G.spheres[sphIdx].center).normalize();
+    const float etaOut = iorGlass / iorAir;
+
+    Vec3 dirOut(0.0f);
+    if (!refractDir(dirInside, -Nexit, etaOut, dirOut)) {
+        // TIR at exit → cannot reach the light via a single specular path
+        return 0.0f;
+    }
+
+    // Continue from just outside the exit point toward the same light sample
+    const Vec3 remain = lightSample - (Pexit + Nexit * epsExit());
+    const float restDist = remain.length();
+    if (restDist <= 0.0f) return 1.0f;
+
+    const Vec3 dirRest = remain / restDist;
+    Ray r1(Pexit + Nexit * epsExit(), dirRest);
+
+    Hit hRest{};
+    (void) detail::traceClosestKind(r1, G, restDist, hRest);
+    return hRest.hit ? 0.0f : 1.0f;
 }
 
 #endif // RENDERING_SHADER_CUH

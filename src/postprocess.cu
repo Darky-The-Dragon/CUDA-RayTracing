@@ -25,14 +25,14 @@
 // Shared helpers & constants (TU‑local)
 // ============================================================================
 namespace {
-    constexpr float kU8Max     = 255.0f;
-    constexpr int   kU8Range   = 256;    // 0..255 inclusive
-    constexpr float kSmallEps  = 1e-8f;
+    constexpr float kU8Max = 255.0f;
+    constexpr int kU8Range = 256; // 0..255 inclusive
+    constexpr float kSmallEps = 1e-8f;
 
     // Luma weights (≈ ITU‑R BT.601, scaled by 256 then shifted back)
-    constexpr int kLumaR = 77;   // ~0.299 * 256
-    constexpr int kLumaG = 150;  // ~0.587 * 256
-    constexpr int kLumaB = 29;   // ~0.114 * 256
+    constexpr int kLumaR = 77; // ~0.299 * 256
+    constexpr int kLumaG = 150; // ~0.587 * 256
+    constexpr int kLumaB = 29; // ~0.114 * 256
     constexpr int kLumaShift = 8;
 
     // CUDA launch defaults
@@ -41,7 +41,7 @@ namespace {
 
     // Constant‑memory limits
     constexpr int kGaussianMaxRadius = 31; // (2R+1) <= 63
-    constexpr int kSpatialMaxRadius  = 32; // (2R+1) <= 65
+    constexpr int kSpatialMaxRadius = 32; // (2R+1) <= 65
 
     /// ------------------------------------------------------------------------
     /// @brief Clamp an integer to [lo, hi].
@@ -88,14 +88,14 @@ namespace {
         float sum = 0.0f;
 
         for (int i = 0; i < size; ++i) {
-            const int   x  = i - radius;
+            const int x = i - radius;
             const auto xf = static_cast<float>(x);
-            const float w  = std::exp(-(xf * xf) * invTwoSigma2);
+            const float w = std::exp(-(xf * xf) * invTwoSigma2);
             kernel[static_cast<size_t>(i)] = w;
             sum += w;
         }
         const float invSum = (sum > kSmallEps) ? (1.0f / sum) : 1.0f;
-        for (float &w : kernel) w *= invSum;
+        for (float &w: kernel) w *= invSum;
 
         return kernel;
     }
@@ -115,9 +115,9 @@ namespace {
             for (int x = 0; x < width; ++x) {
                 float r = 0.0f, g = 0.0f, b = 0.0f;
                 for (int k = 0; k < kernelSize; ++k) {
-                    const int   xx = clampInt(x + (k - radius), 0, width - 1);
+                    const int xx = clampInt(x + (k - radius), 0, width - 1);
                     const uchar3 px = image[row + xx];
-                    const float w  = kernel[static_cast<size_t>(k)];
+                    const float w = kernel[static_cast<size_t>(k)];
                     r += w * static_cast<float>(px.x);
                     g += w * static_cast<float>(px.y);
                     b += w * static_cast<float>(px.z);
@@ -132,9 +132,9 @@ namespace {
             for (int x = 0; x < width; ++x) {
                 float r = 0.0f, g = 0.0f, b = 0.0f;
                 for (int k = 0; k < kernelSize; ++k) {
-                    const int   yy = clampInt(y + (k - radius), 0, height - 1);
+                    const int yy = clampInt(y + (k - radius), 0, height - 1);
                     const uchar3 px = scratch[static_cast<size_t>(yy) * width + x];
-                    const float w  = kernel[static_cast<size_t>(k)];
+                    const float w = kernel[static_cast<size_t>(k)];
                     r += w * static_cast<float>(px.x);
                     g += w * static_cast<float>(px.y);
                     b += w * static_cast<float>(px.z);
@@ -161,7 +161,7 @@ namespace {
                 for (int dx = -radius; dx <= radius; ++dx) {
                     const auto d2 = static_cast<float>(dx * dx + dy * dy);
                     spatial[static_cast<size_t>((dy + radius) * ksize + (dx + radius))] =
-                        std::exp(-d2 * invTwoSigmaS2);
+                            std::exp(-d2 * invTwoSigmaS2);
                 }
             }
         }
@@ -175,7 +175,7 @@ namespace {
                 range[d] = std::exp(-(df * df) * invTwoSigmaR2);
             }
         } else {
-            for (float &w : range) w = 1.0f;
+            for (float &w: range) w = 1.0f;
         }
 
         // Filter each pixel
@@ -187,16 +187,16 @@ namespace {
                 float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f, sumW = 0.0f;
 
                 for (int dy = -radius; dy <= radius; ++dy) {
-                    const int yy  = clampInt(y + dy, 0, height - 1);
+                    const int yy = clampInt(y + dy, 0, height - 1);
                     const int row = (dy + radius) * ksize;
                     for (int dx = -radius; dx <= radius; ++dx) {
-                        const int   xx = clampInt(x + dx, 0, width - 1);
-                        const uchar3 s  = src[static_cast<size_t>(yy) * width + xx];
+                        const int xx = clampInt(x + dx, 0, width - 1);
+                        const uchar3 s = src[static_cast<size_t>(yy) * width + xx];
 
                         const float ws = spatial[static_cast<size_t>(row + (dx + radius))];
-                        const int   dL = std::abs(luma_u8_host(s) - L0);
+                        const int dL = std::abs(luma_u8_host(s) - L0);
                         const float wr = range[dL];
-                        const float w  = ws * wr;
+                        const float w = ws * wr;
 
                         sumR += w * static_cast<float>(s.x);
                         sumG += w * static_cast<float>(s.y);
@@ -207,7 +207,7 @@ namespace {
 
                 const float invW = (sumW > kSmallEps) ? (1.0f / sumW) : 1.0f;
                 image[static_cast<size_t>(y) * width + x] =
-                    packRGB_u8(sumR * invW, sumG * invW, sumB * invW);
+                        packRGB_u8(sumR * invW, sumG * invW, sumB * invW);
             }
         }
     }
@@ -242,26 +242,26 @@ void PostFX::applyCPU(uchar3 *h_img, const int width, const int height,
 /// Constant memory for Gaussian kernel (max 2*31+1 = 63 weights).
 __constant__ float cGaussian[2 * kGaussianMaxRadius + 1];
 static int gGaussianRadius = 0;
-static int gGaussianSize   = 1;
+static int gGaussianSize = 1;
 
 /// Upload a normalized 1D Gaussian kernel to constant memory.
 static void uploadGaussianKernel(const int radius, const float sigma) {
     gGaussianRadius = (radius < 0) ? 0 : (radius > kGaussianMaxRadius ? kGaussianMaxRadius : radius);
-    gGaussianSize   = 2 * gGaussianRadius + 1;
+    gGaussianSize = 2 * gGaussianRadius + 1;
 
     std::vector<float> kernel(static_cast<size_t>(gGaussianSize), 1.0f);
     if (gGaussianRadius > 0 && sigma > 0.0f) {
         const float invTwoSigma2 = 1.0f / (2.0f * sigma * sigma);
         float sum = 0.0f;
         for (int i = 0; i < gGaussianSize; ++i) {
-            const int   x  = i - gGaussianRadius;
+            const int x = i - gGaussianRadius;
             const auto xf = static_cast<float>(x);
-            const float w  = std::exp(-(xf * xf) * invTwoSigma2);
+            const float w = std::exp(-(xf * xf) * invTwoSigma2);
             kernel[static_cast<size_t>(i)] = w;
             sum += w;
         }
         const float invSum = (sum > kSmallEps) ? (1.0f / sum) : 1.0f;
-        for (float &w : kernel) w *= invSum;
+        for (float &w: kernel) w *= invSum;
     }
     cudaMemcpyToSymbol(cGaussian, kernel.data(),
                        sizeof(float) * static_cast<size_t>(gGaussianSize),
@@ -283,9 +283,9 @@ __global__ void kGaussianH(const uchar3 * __restrict__ in,
 
     float r = 0.0f, g = 0.0f, b = 0.0f;
     for (int k = -radius; k <= radius; ++k) {
-        const int   xx = clampInt_d(x + k, 0, width - 1);
+        const int xx = clampInt_d(x + k, 0, width - 1);
         const uchar3 px = in[y * width + xx];
-        const float w  = cGaussian[k + radius];
+        const float w = cGaussian[k + radius];
         r += w * static_cast<float>(px.x);
         g += w * static_cast<float>(px.y);
         b += w * static_cast<float>(px.z);
@@ -307,9 +307,9 @@ __global__ void kGaussianV(const uchar3 * __restrict__ in,
 
     float r = 0.0f, g = 0.0f, b = 0.0f;
     for (int k = -radius; k <= radius; ++k) {
-        const int   yy = clampInt_d(y + k, 0, height - 1);
+        const int yy = clampInt_d(y + k, 0, height - 1);
         const uchar3 px = in[yy * width + x];
-        const float w  = cGaussian[k + radius];
+        const float w = cGaussian[k + radius];
         r += w * static_cast<float>(px.x);
         g += w * static_cast<float>(px.y);
         b += w * static_cast<float>(px.z);
@@ -325,12 +325,12 @@ __global__ void kGaussianV(const uchar3 * __restrict__ in,
 __constant__ float cSpatial[(2 * kSpatialMaxRadius + 1) * (2 * kSpatialMaxRadius + 1)];
 __constant__ float cRange[kU8Range];
 static int gSpatialRadius = 0;
-static int gSpatialSize   = 1;
+static int gSpatialSize = 1;
 
 /// Upload bilateral spatial table and range LUT to constant memory.
 static void uploadBilateralTables(int radius, const float sigmaSpatial, const float sigmaRange) {
     gSpatialRadius = (radius < 0) ? 0 : (radius > kSpatialMaxRadius ? kSpatialMaxRadius : radius);
-    gSpatialSize   = 2 * gSpatialRadius + 1;
+    gSpatialSize = 2 * gSpatialRadius + 1;
 
     // Spatial ( (2R+1)^2 )
     const int ksize = (gSpatialSize > 0) ? gSpatialSize : 1;
@@ -341,7 +341,7 @@ static void uploadBilateralTables(int radius, const float sigmaSpatial, const fl
             for (int dx = -gSpatialRadius; dx <= gSpatialRadius; ++dx) {
                 const auto d2 = static_cast<float>(dx * dx + dy * dy);
                 spatial[static_cast<size_t>((dy + gSpatialRadius) * ksize + (dx + gSpatialRadius))] =
-                    std::exp(-d2 * invTwoSigmaS2);
+                        std::exp(-d2 * invTwoSigmaS2);
             }
         }
     }
@@ -357,7 +357,7 @@ static void uploadBilateralTables(int radius, const float sigmaSpatial, const fl
             range[d] = std::exp(-(df * df) * invTwoSigmaR2);
         }
     } else {
-        for (float & d : range) d = 1.0f;
+        for (float &d: range) d = 1.0f;
     }
     cudaMemcpyToSymbol(cRange, range, sizeof(float) * kU8Range, 0, cudaMemcpyHostToDevice);
 }
@@ -376,23 +376,23 @@ __global__ void kBilateralNaive(const uchar3 * __restrict__ in,
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
     if (x >= width || y >= height) return;
 
-    const int    idxCenter = y * width + x;
-    const uchar3 center    = in[idxCenter];
-    const int    L0        = luma_u8_dev(center);
+    const int idxCenter = y * width + x;
+    const uchar3 center = in[idxCenter];
+    const int L0 = luma_u8_dev(center);
 
     float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f, sumW = 0.0f;
 
     for (int dy = -radius; dy <= radius; ++dy) {
-        const int yy  = clampInt_d(y + dy, 0, height - 1);
+        const int yy = clampInt_d(y + dy, 0, height - 1);
         const int row = (dy + radius) * ksize;
         for (int dx = -radius; dx <= radius; ++dx) {
-            const int   xx = clampInt_d(x + dx, 0, width - 1);
-            const uchar3 s  = in[yy * width + xx];
+            const int xx = clampInt_d(x + dx, 0, width - 1);
+            const uchar3 s = in[yy * width + xx];
 
             const float ws = cSpatial[row + (dx + radius)];
-            const int   dL = abs(luma_u8_dev(s) - L0);
+            const int dL = abs(luma_u8_dev(s) - L0);
             const float wr = cRange[dL];
-            const float w  = ws * wr;
+            const float w = ws * wr;
 
             sumR += w * static_cast<float>(s.x);
             sumG += w * static_cast<float>(s.y);
@@ -425,7 +425,7 @@ void PostFX::applyGPU(uchar3 *d_img, const int width, const int height,
     cudaEventRecord(start, stream);
 
     const dim3 block(kBlockDimX, kBlockDimY);
-    const dim3 grid((width  + block.x - 1) / block.x,
+    const dim3 grid((width + block.x - 1) / block.x,
                     (height + block.y - 1) / block.y);
 
     if (p.filter == Filter::Gaussian) {

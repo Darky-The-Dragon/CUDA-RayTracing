@@ -88,6 +88,12 @@ __host__ __device__ inline bool defaultUseSoftShadows() { return true; }
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline int defaultSoftShadowSamples() { return 16; }
 
+/// ----------------------------------------------------------------------------
+/// @brief
+/// @return true to enable reflected bent soft shadows; false for hard shadows.
+/// ----------------------------------------------------------------------------
+__host__ __device__ inline bool defaultUseBentShadows() { return true; }
+
 // ---------------------------------------------------------------------------
 // Post-processing (host-only; applied in main() after rendering)
 // ---------------------------------------------------------------------------

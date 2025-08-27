@@ -6,7 +6,7 @@
 
 #include "core/camera.cuh"
 #include "rendering/cpu_raytracer.cuh"
-#include "../include/config/defaults.cuh"
+#include "config/defaults.cuh"
 #include "rendering/shader.cuh"
 #include "scenes/world_build.cuh"
 #include "debug/debug_utils.cuh"
@@ -38,13 +38,13 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
     const Light light = defaultLight(); // shared default light
 
     // Local sentinel for “infinite” distance
-    constexpr float kInf = 1e20f;
 
     // ------------------------
     // Per-pixel rendering loop
     // ------------------------
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
+            constexpr float kInf = 1e20f;
             const int idx = y * width + x;
 
             // ------------------------
@@ -80,7 +80,7 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             // ------------------------
             // Quads Intersection
             // ------------------------
-            for (int i = 0; i < SCENE_QUAD_COUNT; ++i) {
+            for (int i = 0; i < W.numQuads; ++i) {
                 float tHit;
                 if (W.quads[i].intersect(ray, tHit) && tHit < hit.t) {
                     hit.t = tHit;
@@ -109,6 +109,7 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             // Shading (unified)
             // -------------------------
             const int softSamples = defaultUseSoftShadows() ? defaultSoftShadowSamples() : 0; // 0 = hard
+            const bool useBent     = defaultUseBentShadows();
             const int maxDepth = 2; // primary + one bounce; adjust as needed
 
             // Per-pixel RNG seed
@@ -120,7 +121,7 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             const Vec3 color = shadeSurface(
                 hit, ray, light, G,
                 seed, maxDepth, softSamples,
-                bg
+                bg, useBent
             );
 
             buffer[idx] = toUChar3(color);

@@ -41,7 +41,7 @@ struct Sphere {
     /// @param m        Material applied to the sphere's surface.
     /// ------------------------------------------------------------------------
     __host__ __device__
-    Sphere(const Vec3 &center, float radius, const Material &m)
+    Sphere(const Vec3 &center, const float radius, const Material &m)
         : center(center), radius(radius), material(m) {
     }
 
@@ -76,6 +76,31 @@ struct Sphere {
             return true;
         }
         return false;
+    }
+
+    /// ------------------------------------------------------------------------
+    /// @brief Sphere ray intersection returning both roots (entry/exit).
+    /// @param ro   Ray origin
+    /// @param rd   Ray (unit) direction
+    /// @param t0   [out] nearer root (entry)
+    /// @param t1   [out] farther root (exit)
+    /// @return True if the ray intersects; t0 <= t1 on success.
+    /// ------------------------------------------------------------------------
+    __host__ __device__ inline bool intersectBoth(const Vec3 &ro, const Vec3 &rd, float &t0, float &t1) const {
+        const Vec3 oc = ro - center;
+        const float b = oc.dot(rd);
+        const float c = oc.dot(oc) - radius * radius;
+        const float disc = b * b - c;
+        if (disc < 0.0f) return false;
+        const float s = sqrtf(disc);
+        t0 = -b - s;
+        t1 = -b + s;
+        if (t0 > t1) {
+            const float tmp = t0;
+            t0 = t1;
+            t1 = tmp;
+        }
+        return true;
     }
 };
 
