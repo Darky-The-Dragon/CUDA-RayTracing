@@ -1,29 +1,32 @@
 /**
  * @file cpu_raytracer.cu
  * @brief CPU reference renderer: matches GPU scene/light/shader for visual parity.
- * @details Renders the Cornell box with Lambert shading + hard shadows, writes RGB.
+ * @details Composes scenes via bitmask, supports runtime debug toggles, writes RGB.
  */
 
 #include "core/camera.cuh"
 #include "rendering/cpu_raytracer.cuh"
 #include "config/defaults.cuh"
 #include "rendering/shader.cuh"
-#include "scenes/world_build.cuh"
+#include "scenes/world_build.cuh"   // host-side world build (no device symbols)
 #include "debug/debug_utils.cuh"
 #include "debug/debug_config.cuh"
 
 // =======================================================
-// CPU reference raytracer
+// CPU reference raytracer (host-only; no device constants)
 // =======================================================
 // - Matches GPU scene setup, lighting, and shading
-// - Supports the same debug gizmos (light sphere/arrow)
+// - Composes scenes via bitmask (Cornell | Spheres | Cubes ...)
+// - Supports the same debug gizmos (light sphere/arrow), gated by runtime flags
 // - Output stored in uchar3 buffer (RGB, 0–255 per channel)
-__host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
+__host__ void cpu_raytrace(uchar3 *buffer, int width, int height,
+                           uint32_t sceneMask,
+                           const DebugConfigHost &dbg) {
     // ------------------------
-    // Scene setup: Cornell box
+    // Scene setup (from mask)
     // ------------------------
     WorldBuffers W;
-    buildWorld(W);
+    buildWorld(W, sceneMask); // host-only world composition
     SceneGeom G{
         W.quads, W.numQuads,
         W.spheres, W.numSpheres
@@ -34,10 +37,9 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
     // ------------------------
     Camera cam;
     cam.fov_deg = defaultCameraFovDeg();
+
     const Vec3 bg = toFloat3(defaultBackgroundU8()); // background when no hit
     const Light light = defaultLight(); // shared default light
-
-    // Local sentinel for “infinite” distance
 
     // ------------------------
     // Per-pixel rendering loop
@@ -52,22 +54,31 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             // ------------------------
             const Ray ray = generatePrimaryRay(cam, x, y, width, height);
 
-#if DEBUG_DRAW_LIGHT_SPHERE || DEBUG_DRAW_LIGHT_DIRECTION
             // ------------------------
-            // Debug gizmos (draw on top), same as GPU path
-            // Early-out if a gizmo “hits” this pixel
+            // Debug gizmos (draw on top), same as GPU path.
+            // Early-out if a gizmo “hits” this pixel.
             // ------------------------
-            {
+#if DEBUG_DRAW_LIGHT_SPHERE
+            if (dbg.drawLightSphere) {
                 uchar3 gizmoColor;
                 if (renderLightDebug(ray, light, gizmoColor)) {
                     buffer[idx] = gizmoColor;
                     continue;
                 }
+            }
+#endif
+#if DEBUG_DRAW_LIGHT_DIRECTION
+            if (dbg.drawLightDir) {
+                uchar3 gizmoColor;
                 if (renderLightDirectionRay(ray, light, gizmoColor)) {
                     buffer[idx] = gizmoColor;
                     continue;
                 }
             }
+#endif
+#if DEBUG_DRAW_NORMALS
+            // (Optional) If you later implement normal visualization,
+            // gate with dbg.drawNormals here.
 #endif
 
             // ------------------------
@@ -109,7 +120,7 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height) {
             // Shading (unified)
             // -------------------------
             const int softSamples = defaultUseSoftShadows() ? defaultSoftShadowSamples() : 0; // 0 = hard
-            const bool useBent     = defaultUseBentShadows();
+            const bool useBent = defaultUseBentShadows();
             const int maxDepth = 2; // primary + one bounce; adjust as needed
 
             // Per-pixel RNG seed

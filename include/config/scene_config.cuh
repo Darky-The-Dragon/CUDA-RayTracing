@@ -13,6 +13,8 @@
 #ifndef CONFIG_SCENE_CONFIG_CUH
 #define CONFIG_SCENE_CONFIG_CUH
 
+#include <cstdint>
+
 // ------------------------------------------------------------
 // Scene selection bitmask
 // ------------------------------------------------------------
@@ -20,10 +22,15 @@
 //   SCENE_CORNELL | SCENE_SPHERES
 //
 // Add more entries here when new scenes are created.
-enum SceneMask : unsigned {
-    SCENE_NONE = 0, ///< No scenes active
-    SCENE_CORNELL = 1u << 0, ///< Cornell box scene
-    // SCENE_SPHERES = 1u << 1, ///< Simple test spheres (future)
+///
+/// @brief Scene bit flags used to compose the world.
+///
+enum SceneBits : std::uint32_t {
+    SCENE_NONE = 0u,
+    SCENE_CORNELL = 1u << 0, ///< Cornell box
+    SCENE_SPHERES = 1u << 1, ///< Test spheres
+    SCENE_CUBES = 1u << 2, ///< (Example placeholder) cubes
+    // add more here ...
 };
 
 // ------------------------------------------------------------
@@ -31,19 +38,23 @@ enum SceneMask : unsigned {
 // ------------------------------------------------------------
 // By default, only the Cornell box scene is enabled.
 // Override via compiler definition:
-//   -SCENE_ENABLED_MASK="(SCENE_CORNELL | SCENE_SPHERES)"
+//   -DSCENE_ENABLED_MASK="(SCENE_CORNELL | SCENE_SPHERES)"
 #ifndef SCENE_ENABLED_MASK
 #define SCENE_ENABLED_MASK (SCENE_CORNELL)
 #endif
 
+/// @brief Default scene mask as a constexpr value (used by back-compat overloads).
+static constexpr std::uint32_t DEFAULT_SCENE_MASK =
+        static_cast<std::uint32_t>(SCENE_ENABLED_MASK);
+
 /// ------------------------------------------------------------------------
-/// @brief Checks if a given scene bit is enabled in the active scene mask.
-///
-/// @param bit Scene bit to check (e.g., SCENE_CORNELL).
-/// @return true if enabled, false otherwise.
+/// @brief Check if a scene bit is enabled in a mask.
+/// @param mask The scene bitmask.
+/// @param bit  A SceneBits flag.
+/// @return True if the flag is present.
 /// ------------------------------------------------------------------------
-__host__ __device__ inline bool sceneEnabled(unsigned bit) {
-    return (SCENE_ENABLED_MASK & bit) != 0u;
+constexpr inline bool sceneEnabled(std::uint32_t mask, SceneBits bit) {
+    return (mask & static_cast<std::uint32_t>(bit)) != 0u;
 }
 
 // ------------------------------------------------------------

@@ -166,16 +166,20 @@ namespace {
             }
         }
 
-        // Range LUT for luma deltas 0..255
+        // Range LUT for luma deltas 0..255; parameter is normalized (0..1) or absolute (>=1)
         float range[kU8Range];
-        if (sigmaRange > 0.0f) {
-            const float invTwoSigmaR2 = 1.0f / (2.0f * sigmaRange * sigmaRange);
+
+        // Accept both: if <= 1 treat as normalized (scale to 0..255), else assume absolute luma units
+        const float sigmaR = (sigmaRange <= 1.0f) ? (sigmaRange * 255.0f) : sigmaRange;
+
+        if (sigmaR > 0.0f) {
+            const float invTwoSigmaR2 = 1.0f / (2.0f * sigmaR * sigmaR);
             for (int d = 0; d < kU8Range; ++d) {
-                const auto df = static_cast<float>(d);
+                const float df = static_cast<float>(d);
                 range[d] = std::exp(-(df * df) * invTwoSigmaR2);
             }
         } else {
-            for (float &w: range) w = 1.0f;
+            for (int d = 0; d < kU8Range; ++d) range[d] = 1.0f;
         }
 
         // Filter each pixel
@@ -348,16 +352,18 @@ static void uploadBilateralTables(int radius, const float sigmaSpatial, const fl
     cudaMemcpyToSymbol(cSpatial, spatial.data(),
                        sizeof(float) * spatial.size(), 0, cudaMemcpyHostToDevice);
 
-    // Range (0..255)
+    // Range (0..255); parameter is normalized (0..1) or absolute (>=1)
     float range[kU8Range];
-    if (sigmaRange > 0.0f) {
-        const float invTwoSigmaR2 = 1.0f / (2.0f * sigmaRange * sigmaRange);
+    const float sigmaR = (sigmaRange <= 1.0f) ? (sigmaRange * 255.0f) : sigmaRange;
+
+    if (sigmaR > 0.0f) {
+        const float invTwoSigmaR2 = 1.0f / (2.0f * sigmaR * sigmaR);
         for (int d = 0; d < kU8Range; ++d) {
-            const auto df = static_cast<float>(d);
+            const float df = static_cast<float>(d);
             range[d] = std::exp(-(df * df) * invTwoSigmaR2);
         }
     } else {
-        for (float &d: range) d = 1.0f;
+        for (int d = 0; d < kU8Range; ++d) range[d] = 1.0f;
     }
     cudaMemcpyToSymbol(cRange, range, sizeof(float) * kU8Range, 0, cudaMemcpyHostToDevice);
 }

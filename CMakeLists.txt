@@ -1,30 +1,31 @@
 cmake_minimum_required(VERSION 3.18)
 project(CUDA_RayTracing LANGUAGES CXX CUDA)
 
-# Use C++17 and CUDA 17 for compatibility
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
-# Automatically locate the CUDA toolkit (works on Linux, macOS, Windows)
 find_package(CUDAToolkit REQUIRED)
-
-# Optional: Print found CUDA path
 message(STATUS "CUDA toolkit root: ${CUDAToolkit_LIBRARY_ROOT}")
 
-# Set GPU architecture (RTX 40xx = sm_89; adjust as needed)
-set(CMAKE_CUDA_ARCHITECTURES 89)
+# Prefer target-scoped arch (avoids global CMake quirks)
+# set(CMAKE_CUDA_ARCHITECTURES 89)
 
-# Enable separable compilation for device code
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-
-# Add root path definition for output file locations
 add_compile_definitions(PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
-# ------------------------------
-#  Source Lists
-# ------------------------------
+# --------------------------------
+# Sources / Headers
+# --------------------------------
+set(SOURCES
+        src/cpu_raytracer.cu
+        src/main.cu
+        src/postprocess.cu
+        src/raytracer.cu
+        src/ui/menu.cu
+)
 
-# Header files
 set(HEADERS
         include/config/defaults.cuh
         include/config/config.cuh
@@ -47,28 +48,36 @@ set(HEADERS
         include/scenes/basic_spheres.cuh
         include/scenes/cornell_box.cuh
         include/scenes/world_build.cuh
+        include/ui/menu.cuh
+        include/rendering/device_scene.cuh
 )
 
-# Source files
-set(SOURCES
-        src/cpu_raytracer.cu
-        src/main.cu
-        src/postprocess.cu
-        src/raytracer.cu
-)
-
-# ------------------------------
-#  Main Executable
-# ------------------------------
 add_executable(CUDA_RayTracing ${SOURCES} ${HEADERS})
 target_include_directories(CUDA_RayTracing PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-set_target_properties(CUDA_RayTracing PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(CUDA_RayTracing PROPERTIES
+        CUDA_SEPARABLE_COMPILATION ON
+        CUDA_ARCHITECTURES 89            # <-- target-scoped arch
+)
 
-# ------------------------------
-#  Optional Test App
-# ------------------------------
-option(BUILD_TEST "Build the CUDA test program" ON)
+# Warnings
+if (MSVC)
+    target_compile_options(CUDA_RayTracing PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:/W4 /permissive- /Zc:__cplusplus>
+            # Forward MSVC flags to the host compiler when compiling CUDA:
+            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/W4>
+    )
+else ()
+    target_compile_options(CUDA_RayTracing PRIVATE
+            $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra -Wpedantic>
+            $<$<COMPILE_LANGUAGE:CUDA>:--Werror cross-execution-space-call -Xptxas=-v>
+    )
+endif ()
 
+# Optional: fast math for CUDA
+# target_compile_options(CUDA_RayTracing PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--use_fast_math>)
+
+# Optional test target
+option(BUILD_TEST "Build the CUDA test program" OFF)
 if (BUILD_TEST)
     add_executable(CUDA_RayTracing_Test Test/main.cu)
     target_include_directories(CUDA_RayTracing_Test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

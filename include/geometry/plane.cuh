@@ -34,6 +34,7 @@ struct Plane {
     /// @brief Default constructor — white plane at origin, zero normal.
     /// ------------------------------------------------------------------------
     __host__ __device__
+
     Plane()
         : planePoint(0.0f),
           normalVector(0.0f),

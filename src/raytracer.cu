@@ -5,10 +5,12 @@
  *          FOV with the CPU path to ensure visual parity between CPU and GPU renderers.
  */
 
+#include <cstdint>
 #include "core/camera.cuh"
 #include "config/defaults.cuh"
+#include "rendering/raytrace.cuh"
+#include "rendering/device_scene.cuh"
 #include "rendering/shader.cuh"
-#include "scenes/world_build.cuh"
 #include "debug/debug_utils.cuh"
 #include "debug/debug_config.cuh"
 
@@ -63,13 +65,8 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     // -------------------------
     // Scene build
     // -------------------------
-    WorldBuffers W;
-    buildWorld(W);
 
-    SceneGeom G{
-        W.quads, W.numQuads,
-        W.spheres, W.numSpheres
-    };
+    const SceneGeom G = getDeviceScene();
 
     // -------------------------
     // Intersect & keep nearest
@@ -77,25 +74,23 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     Hit hit{};
     hit.t = dInf();
     hit.hit = false;
-    for (int i = 0; i < SCENE_QUAD_COUNT; ++i) {
-        float tHit;
-        if (W.quads[i].intersect(ray, tHit) && tHit < hit.t) {
+    for (int i = 0; i < G.numQuads; ++i) {
+        if (float tHit; G.quads[i].intersect(ray, tHit) && tHit < hit.t) {
             hit.t = tHit;
             hit.hit = true;
             hit.P = ray.at(tHit);
-            hit.N = W.quads[i].normal; // quads have a constant normal
-            hit.mat = W.quads[i].material;
+            hit.N = G.quads[i].normal; // quads have a constant normal
+            hit.mat = G.quads[i].material;
         }
     }
 
-    for (int i = 0; i < W.numSpheres; ++i) {
-        float tHit;
-        if (W.spheres[i].intersect(ray.origin, ray.direction, tHit) && tHit < hit.t) {
+    for (int i = 0; i < G.numSpheres; ++i) {
+        if (float tHit; G.spheres[i].intersect(ray.origin, ray.direction, tHit) && tHit < hit.t) {
             hit.t = tHit;
             hit.hit = true;
             hit.P = ray.at(tHit);
-            hit.N = (hit.P - W.spheres[i].center).normalize();
-            hit.mat = W.spheres[i].material;
+            hit.N = (hit.P - G.spheres[i].center).normalize();
+            hit.mat = G.spheres[i].material;
         }
     }
 
@@ -103,7 +98,7 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     // Shading (unified)
     // -------------------------
     const int softSamples = defaultUseSoftShadows() ? defaultSoftShadowSamples() : 0; // 0 = hard
-    const bool useBent    = defaultUseBentShadows();
+    const bool useBent = defaultUseBentShadows();
     constexpr int maxDepth = 2;
 
     // Per-pixel RNG seed

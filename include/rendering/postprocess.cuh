@@ -52,7 +52,7 @@ namespace PostFX {
         float gaussianSigma = 1.2f;
         int bilateralRadius = 3;
         float bilateralSigmaSpatial = 2.0f;
-        float bilateralSigmaRange = 24.0f;
+        float bilateralSigmaRange = 0.15f;
     };
 
     /// ----------------------------------------------------------------------------

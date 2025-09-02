@@ -8,12 +8,6 @@
 //   - Default light (including area radius for soft shadows)
 //   - Soft-shadow toggles and sample count
 //   - Post-processing toggles and parameters (host-side)
-//
-// Notes:
-//   - Functions marked __host__ __device__ are intended for use from both
-//     CPU code and device kernels (e.g., defaultLight()).
-//   - Post-processing controls are host-only (no device annotation) since
-//     post-FX currently runs on the CPU.
 // ============================================================================
 
 #ifndef CONFIG_DEFAULTS_CUH
@@ -27,7 +21,7 @@
 // ---------------------------------------------------------------------------
 
 /// ----------------------------------------------------------------------------
-/// @brief Get the default camera vertical field of view (degrees).
+/// @brief Default camera vertical field of view (degrees).
 /// @return Vertical FOV in degrees (default: 90.0f).
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline float defaultCameraFovDeg() {
@@ -35,7 +29,7 @@ __host__ __device__ inline float defaultCameraFovDeg() {
 }
 
 /// ----------------------------------------------------------------------------
-/// @brief Get the default background color.
+/// @brief Default background color (gamma-encoded).
 /// @return RGB color as uchar3 (default: light blue).
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline uchar3 defaultBackgroundU8() {
@@ -48,17 +42,14 @@ __host__ __device__ inline uchar3 defaultBackgroundU8() {
 
 /// ----------------------------------------------------------------------------
 /// @brief Construct the default light used by the renderer.
-///
-/// Default light parameters:
+/// @details
 ///   - Type: POINT
 ///   - Position: (0.0, -0.9, 0.0)
 ///   - Direction: (0, -1, 0) — downward
 ///   - Color: warm yellow (255, 255, 100)
-///   - Intensity: 3.0
-///   - Range: 10.0
+///   - Intensity: 3.0, Range: 10.0
 ///   - Cone angle: 0.0 (unused for POINT)
 ///   - Radius: 0.20 ( > 0 enables soft shadows as an area emitter )
-///
 /// @return A Light configured with the defaults above.
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline Light defaultLight() {
@@ -89,13 +80,13 @@ __host__ __device__ inline bool defaultUseSoftShadows() { return true; }
 __host__ __device__ inline int defaultSoftShadowSamples() { return 16; }
 
 /// ----------------------------------------------------------------------------
-/// @brief
-/// @return true to enable reflected bent soft shadows; false for hard shadows.
+/// @brief Enable bent/reflection-aware soft shadowing.
+/// @return true to enable bent shadows; false for hard-only.
 /// ----------------------------------------------------------------------------
 __host__ __device__ inline bool defaultUseBentShadows() { return true; }
 
 // ---------------------------------------------------------------------------
-// Post-processing (host-only; applied in main() after rendering)
+// Post-processing (host-only; applied after rendering)
 // ---------------------------------------------------------------------------
 
 /// ----------------------------------------------------------------------------
@@ -135,9 +126,11 @@ inline int ppBilateralRadius() { return 3; }
 inline float ppSigmaSpatial() { return 2.0f; }
 
 /// ----------------------------------------------------------------------------
-/// @brief Bilateral filter range sigma (0..255 color distance units).
-/// @return Sigma for color/intensity falloff.
+/// @brief Bilateral filter range sigma (normalized 0..1 color distance).
+/// @return Sigma for color/intensity falloff (default: 0.15f).
+/// @note If your implementation expects 0..255, multiply by 255.0f at use-site:
+///       `const float sigmaRange255 = ppSigmaRange() * 255.0f;`
 /// ----------------------------------------------------------------------------
-inline float ppSigmaRange() { return 24.0f; }
+inline float ppSigmaRange() { return 0.15f; }
 
 #endif // CONFIG_DEFAULTS_CUH
