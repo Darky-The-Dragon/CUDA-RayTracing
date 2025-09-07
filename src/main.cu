@@ -1,17 +1,17 @@
 ///
 /// @file main.cu
 /// @brief Entry point: runs GPU + CPU renderers, saves images, prints timing.
-/// @details Uses a fast P6 (binary) PPM writer and a menu-driven runtime config.
+/// @details Uses a menu-driven runtime config. Supports PPM/PNG export, preview, watermark.
 ///
 
 #include <cuda_runtime.h>
 #include <chrono>
-#include <fstream>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
-#include <algorithm>
-#include <filesystem>
+#include <cstdint>
 
 namespace fs = std::filesystem;
 
@@ -24,6 +24,9 @@ namespace fs = std::filesystem;
 #include "rendering/postprocess.cuh"
 #include "scenes/world_build.cuh"
 #include "ui/menu.cuh"
+
+// NEW: centralized image I/O (PPM/PNG), watermark, preview
+#include "io/image_io.cuh"
 
 // ============================================================================
 // CUDA helpers & device-side constants
@@ -56,31 +59,6 @@ static_assert(alignof(Quad) <= 16, "Quad alignment > 16; bump __align__ on d_qua
 static_assert(alignof(Sphere) <= 16, "Sphere alignment > 16; bump __align__ on d_spheres_raw.");
 
 /**
- * @brief Upload runtime debug flags to device constant memory.
- * @param rc Runtime config collected from the menu.
- */
-static void uploadDebugToDevice(const RuntimeConfig &rc) {
-    DebugConfig D{};
-    D.drawLightSphere = rc.dbgDrawLightSphere ? 1 : 0;
-    D.drawLightDir = rc.dbgDrawLightDir ? 1 : 0;
-    D.drawNormals = rc.dbgDrawNormals ? 1 : 0;
-    CUDA_CHECK(cudaMemcpyToSymbol(d_dbg, &D, sizeof(D)));
-}
-
-/**
- * @brief Upload the built world geometry to device constant memory.
- * @param W Host-side world buffers (fixed-size arrays + counts).
- */
-static void uploadSceneToDevice(const WorldBuffers &W) {
-    const int nq = std::max(0, std::min(W.numQuads, MAX_QUADS));
-    const int ns = std::max(0, std::min(W.numSpheres, MAX_SPHERES));
-    CUDA_CHECK(cudaMemcpyToSymbol(d_quads_raw, W.quads, sizeof(Quad) * nq));
-    CUDA_CHECK(cudaMemcpyToSymbol(d_numQuads, &nq, sizeof(int)));
-    CUDA_CHECK(cudaMemcpyToSymbol(d_spheres_raw, W.spheres, sizeof(Sphere) * ns));
-    CUDA_CHECK(cudaMemcpyToSymbol(d_numSpheres, &ns, sizeof(int)));
-}
-
-/**
  * @brief Small RAII wrapper for cudaEvent_t to ensure cleanup.
  */
 struct CudaEvent {
@@ -88,26 +66,6 @@ struct CudaEvent {
     CudaEvent() { CUDA_CHECK(cudaEventCreate(&ev)); }
     ~CudaEvent() { cudaEventDestroy(ev); }
 };
-
-// ============================================================================
-// Simple image writer (PPM P6)
-// ============================================================================
-
-///
-/// @brief Write an image to PPM (binary P6) format.
-/// @param path   Output file path.
-/// @param pixels Pointer to RGB data (uchar3 per pixel), row-major.
-/// @param w      Image width.
-/// @param h      Image height.
-/// @return True on success, false on failure.
-///
-static bool writePPM_P6(const std::string &path, const uchar3 *pixels, int w, int h) {
-    std::ofstream out(path, std::ios::binary);
-    if (!out) return false;
-    out << "P6\n" << w << ' ' << h << "\n255\n";
-    out.write(reinterpret_cast<const char *>(pixels), size_t(w) * size_t(h) * sizeof(uchar3));
-    return true;
-}
 
 // ============================================================================
 // Main
@@ -123,7 +81,7 @@ int main() {
     const size_t IMAGE_BYTES = size_t(WIDTH) * size_t(HEIGHT) * sizeof(uchar3);
 
     // Ensure output dir exists
-    const std::string outDir = std::string(PROJECT_SOURCE_DIR) + "/output";
+    const std::string outDir = (fs::path(PROJECT_SOURCE_DIR) / "output").string();
     fs::create_directories(outDir);
     std::cout << "[INFO] Output directory: " << outDir << "\n";
 
@@ -137,8 +95,11 @@ int main() {
 
     std::cout << "[GPU DEBUG] Threads per block: " << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
     std::cout << "[GPU DEBUG] Total blocks: " << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
-    std::cout << "[GPU DEBUG] Total threads: "
-            << (blocksPerGrid.x * threadsPerBlock.x) * (blocksPerGrid.y * threadsPerBlock.y) << "\n";
+
+    const uint64_t totalThreads =
+            static_cast<uint64_t>(blocksPerGrid.x) * threadsPerBlock.x *
+            static_cast<uint64_t>(blocksPerGrid.y) * threadsPerBlock.y;
+    std::cout << "[GPU DEBUG] Total threads: " << totalThreads << "\n";
 
     // Device stack (only needed if recursion is used on device)
     size_t cur = 0;
@@ -157,26 +118,49 @@ int main() {
     // Upload runtime debug toggles
     uploadDebugToDevice(rc);
 
-    // Launch & time
-    CudaEvent start, stop;
-    CUDA_CHECK(cudaEventRecord(start.ev));
-    raytrace<<<blocksPerGrid, threadsPerBlock>>>(d_buffer, WIDTH, HEIGHT);
-    CUDA_CHECK(cudaPeekAtLastError());
-    CUDA_CHECK(cudaEventRecord(stop.ev));
-    CUDA_CHECK(cudaEventSynchronize(stop.ev));
+    // Launch & time (scope ensures events are destroyed before optional reset)
+    {
+        CudaEvent start, stop;
+        CUDA_CHECK(cudaEventRecord(start.ev));
+        raytrace<<<blocksPerGrid, threadsPerBlock>>>(d_buffer, WIDTH, HEIGHT);
+        CUDA_CHECK(cudaGetLastError());
+        // During debugging you can enable a full sync to catch launch faults at the call site:
+        // CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaEventRecord(stop.ev));
+        CUDA_CHECK(cudaEventSynchronize(stop.ev));
 
-    float gpu_ms = 0.0f;
-    CUDA_CHECK(cudaEventElapsedTime(&gpu_ms, start.ev, stop.ev));
-    std::cout << "[TIMING] GPU raytracing took " << gpu_ms << " ms\n";
+        float gpu_ms = 0.0f;
+        CUDA_CHECK(cudaEventElapsedTime(&gpu_ms, start.ev, stop.ev));
+        std::cout << "[TIMING] GPU raytracing took " << gpu_ms << " ms\n";
+    }
 
     // Copy GPU result to host & save
     std::vector<uchar3> h_gpu(size_t(WIDTH) * size_t(HEIGHT));
     CUDA_CHECK(cudaMemcpy(h_gpu.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost)); {
-        const std::string path = outDir + "/output_gpu.ppm";
-        if (!writePPM_P6(path, h_gpu.data(), WIDTH, HEIGHT))
-            std::cerr << "[ERROR] Failed to write GPU image: " << path << "\n";
-        else
-            std::cout << "[INFO] GPU image saved: " << path << "\n";
+        const bool wantPNG = (rc.exportFormat == 1);
+        const auto fmt = wantPNG ? ExportFormat::PNG : ExportFormat::PPM;
+
+        // choose subfolder based on format
+        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
+        fs::create_directories(subdir);
+
+        const std::string path = (subdir / (std::string("output_gpu") + (wantPNG ? ".png" : ".ppm"))).string();
+
+        if (rc.addWatermark) {
+            std::vector<uchar3> copy = h_gpu;
+            const std::string fxName = rc.enablePostFX ? (rc.fxFilter == 0 ? "Gaussian" : "Bilateral") : "Off";
+            addWatermarkInPlace(copy, WIDTH, HEIGHT, "GPU | PostFX:" + fxName);
+            if (!saveImage(path, copy.data(), WIDTH, HEIGHT, fmt))
+                std::cerr << "[ERROR] Failed to save GPU image: " << path << "\n";
+            else
+                std::cout << "[INFO] GPU image saved: " << path << "\n";
+        } else {
+            if (!saveImage(path, h_gpu.data(), WIDTH, HEIGHT, fmt))
+                std::cerr << "[ERROR] Failed to save GPU image: " << path << "\n";
+            else
+                std::cout << "[INFO] GPU image saved: " << path << "\n";
+        }
+        if (rc.autoOpenPreview) (void) openPreview(path);
     }
 
     // ---- GPU POST-FX (in-place on d_buffer), then save _pp
@@ -197,12 +181,29 @@ int main() {
 
         std::vector<uchar3> h_gpu_pp(size_t(WIDTH) * size_t(HEIGHT));
         CUDA_CHECK(cudaMemcpy(h_gpu_pp.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost));
+        const bool wantPNG = (rc.exportFormat == 1);
+        const auto fmt = wantPNG ? ExportFormat::PNG : ExportFormat::PPM;
 
-        const std::string path = outDir + "/output_gpu_pp.ppm";
-        if (!writePPM_P6(path, h_gpu_pp.data(), WIDTH, HEIGHT))
-            std::cerr << "[ERROR] Failed to write GPU post-processed image: " << path << "\n";
-        else
-            std::cout << "[INFO] GPU post-processed image saved: " << path << "\n";
+        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
+        fs::create_directories(subdir);
+
+        const std::string path = (subdir / (std::string("output_gpu_pp") + (wantPNG ? ".png" : ".ppm"))).string();
+
+        if (rc.addWatermark) {
+            std::vector<uchar3> copy = h_gpu_pp;
+            const std::string fxName = (rc.fxFilter == 0 ? "Gaussian" : "Bilateral");
+            addWatermarkInPlace(copy, WIDTH, HEIGHT, "GPU | PostFX:" + fxName);
+            if (!saveImage(path, copy.data(), WIDTH, HEIGHT, fmt))
+                std::cerr << "[ERROR] Failed to save GPU post-processed image: " << path << "\n";
+            else
+                std::cout << "[INFO] GPU post-processed image saved: " << path << "\n";
+        } else {
+            if (!saveImage(path, h_gpu_pp.data(), WIDTH, HEIGHT, fmt))
+                std::cerr << "[ERROR] Failed to save GPU post-processed image: " << path << "\n";
+            else
+                std::cout << "[INFO] GPU post-processed image saved: " << path << "\n";
+        }
+        if (rc.autoOpenPreview) (void) openPreview(path);
     }
 
     // ---------------- CPU Raytracer ----------------
@@ -220,11 +221,28 @@ int main() {
     const auto cpuEnd = std::chrono::high_resolution_clock::now();
     const double cpuMs = std::chrono::duration<double, std::milli>(cpuEnd - cpuStart).count();
     std::cout << "[TIMING] CPU raytracing took " << cpuMs << " ms\n"; {
-        const std::string path = outDir + "/output_cpu.ppm";
-        if (!writePPM_P6(path, h_cpu.data(), WIDTH, HEIGHT))
-            std::cerr << "[ERROR] Failed to write CPU image: " << path << "\n";
-        else
-            std::cout << "[INFO] CPU image saved: " << path << "\n";
+        const bool wantPNG = (rc.exportFormat == 1);
+        const auto fmt = wantPNG ? ExportFormat::PNG : ExportFormat::PPM;
+
+        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
+        fs::create_directories(subdir);
+
+        const std::string path = (subdir / (std::string("output_cpu") + (wantPNG ? ".png" : ".ppm"))).string();
+
+        if (rc.addWatermark) {
+            std::vector<uchar3> copy = h_cpu;
+            addWatermarkInPlace(copy, WIDTH, HEIGHT, "CPU | PostFX:Off");
+            if (!saveImage(path, copy.data(), WIDTH, HEIGHT, fmt))
+                std::cerr << "[ERROR] Failed to write CPU image: " << path << "\n";
+            else
+                std::cout << "[INFO] CPU image saved: " << path << "\n";
+        } else {
+            if (!saveImage(path, h_cpu.data(), WIDTH, HEIGHT, fmt))
+                std::cerr << "[ERROR] Failed to write CPU image: " << path << "\n";
+            else
+                std::cout << "[INFO] CPU image saved: " << path << "\n";
+        }
+        if (rc.autoOpenPreview) (void) openPreview(path);
     }
 
     // ---- CPU POST-FX (on copy), then save _pp
@@ -245,14 +263,27 @@ int main() {
         PostFX::applyCPU(h_cpu_pp.data(), WIDTH, HEIGHT, fx, &fxT);
         std::cout << "[TIMING] CPU post-FX took " << fxT.ms << " ms\n";
 
-        const std::string path = outDir + "/output_cpu_pp.ppm";
-        if (!writePPM_P6(path, h_cpu_pp.data(), WIDTH, HEIGHT))
+        const bool wantPNG = (rc.exportFormat == 1);
+        const auto fmt = wantPNG ? ExportFormat::PNG : ExportFormat::PPM;
+
+        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
+        fs::create_directories(subdir);
+
+        const std::string path = (subdir / (std::string("output_cpu_pp") + (wantPNG ? ".png" : ".ppm"))).string();
+
+        if (rc.addWatermark) {
+            std::string fxName = (rc.fxFilter == 0 ? "Gaussian" : "Bilateral");
+            addWatermarkInPlace(h_cpu_pp, WIDTH, HEIGHT, "CPU | PostFX:" + fxName);
+        }
+        if (!saveImage(path, h_cpu_pp.data(), WIDTH, HEIGHT, fmt))
             std::cerr << "[ERROR] Failed to write CPU post-processed image: " << path << "\n";
         else
             std::cout << "[INFO] CPU post-processed image saved: " << path << "\n";
+        if (rc.autoOpenPreview) (void) openPreview(path);
     }
 
     // ---------------- Cleanup ----------------
     CUDA_CHECK(cudaFree(d_buffer));
+    CUDA_CHECK(cudaDeviceReset());
     return 0;
 }

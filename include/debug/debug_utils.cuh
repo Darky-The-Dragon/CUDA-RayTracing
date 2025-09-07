@@ -32,11 +32,12 @@
 #  endif
 #endif
 
-#include "core/colors.cuh"         // uchar3 + make_uchar3 (with host fallback)
+#include <cuda_runtime.h>
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
+#include "debug/debug_config.cuh"
+#include "geometry/sphere.cuh"
 #include "rendering/light.cuh"
-#include "debug/debug_config.cuh"  // DebugConfig + extern __constant__ d_dbg
 
 // ----------------------------------------------------------------------------
 // Tunable gizmo sizes (in world units)
@@ -123,15 +124,20 @@ HD FINL bool dbgNormals() {
 /// @param center Sphere center in world space.
 /// @param radius Sphere radius in world units.
 /// @return True if the ray intersects the sphere; false otherwise.
-/// @note This helper returns only a hit boolean (no distance).
+/// @note Internally delegates to Sphere::intersectBoth.
+///       Reports true only if at least one intersection is in front of the ray origin.
 /// ----------------------------------------------------------------------------
 HD FINL bool intersectsSphere(const Ray &ray, const Vec3 &center, float radius) {
-    const Vec3 oc = ray.origin - center;
-    const float a = ray.direction.dot(ray.direction);
-    const float b = 2.0f * oc.dot(ray.direction);
-    const float c = oc.dot(oc) - radius * radius;
-    const float disc = b * b - 4.0f * a * c;
-    return disc > 0.0f;
+    Sphere s;
+    s.center = center;
+    s.radius = radius;
+
+    float t0, t1;
+    if (!s.intersectBoth(ray.origin, ray.direction, t0, t1)) return false;
+
+    const float eps = 1e-6f;
+    const float tmax = (t0 < t1) ? t1 : t0;
+    return tmax > eps;
 }
 
 /// ----------------------------------------------------------------------------
@@ -144,14 +150,17 @@ HD FINL bool intersectsSphere(const Ray &ray, const Vec3 &center, float radius) 
 /// ----------------------------------------------------------------------------
 HD FINL bool renderLightDebug(const Ray &ray, const Light &light, uchar3 &outColor) {
 #if DEBUG_DRAW_LIGHT_SPHERE
-    if (!dbgLightSphere()) return false; // runtime gate (device) or compile-time (host)
+    if (!dbgLightSphere()) return false;
     const Vec3 lightPos = light.position;
     if (intersectsSphere(ray, lightPos, kLightSphereRadius)) {
-        outColor = light.color; // use actual light color for the gizmo
+        outColor = light.color;
         return true;
     }
-#endif
     return false;
+#else
+    (void)ray; (void)light; (void)outColor;
+    return false;
+#endif
 }
 
 /// ----------------------------------------------------------------------------
@@ -174,11 +183,14 @@ HD FINL bool renderLightDirectionRay(const Ray &ray, const Light &light, uchar3 
     const Vec3 lineMid = light.position + dirNorm * (0.5f * kArrowBodyLength);
 
     if (intersectsSphere(ray, lineMid, kArrowBodyRadius)) {
-        outColor = make_uchar3(255, 0, 255); // magenta
+        outColor = make_uchar3(255, 0, 255);
         return true;
     }
-#endif
     return false;
+#else
+    (void)ray; (void)light; (void)outColor;
+    return false;
+#endif
 }
 
 #endif // DEBUG_UTILS_CUH

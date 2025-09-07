@@ -45,7 +45,7 @@ enum SceneBits : std::uint32_t {
 
 /// @brief Default scene mask as a constexpr value (used by back-compat overloads).
 static constexpr std::uint32_t DEFAULT_SCENE_MASK =
-        static_cast<std::uint32_t>(SCENE_ENABLED_MASK);
+        SCENE_ENABLED_MASK;
 
 /// ------------------------------------------------------------------------
 /// @brief Check if a scene bit is enabled in a mask.
@@ -53,7 +53,7 @@ static constexpr std::uint32_t DEFAULT_SCENE_MASK =
 /// @param bit  A SceneBits flag.
 /// @return True if the flag is present.
 /// ------------------------------------------------------------------------
-constexpr inline bool sceneEnabled(std::uint32_t mask, SceneBits bit) {
+constexpr bool sceneEnabled(std::uint32_t mask, SceneBits bit) {
     return (mask & static_cast<std::uint32_t>(bit)) != 0u;
 }
 

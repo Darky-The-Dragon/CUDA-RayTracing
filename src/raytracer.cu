@@ -15,11 +15,6 @@
 #include "debug/debug_config.cuh"
 
 // =======================================================
-// Small numeric helpers
-// =======================================================
-static __device__ __forceinline__ float dInf() { return 1e20f; }
-
-// =======================================================
 // Main raytracer kernel
 // =======================================================
 // Each thread shades exactly one pixel.
@@ -65,34 +60,13 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     // -------------------------
     // Scene build
     // -------------------------
-
     const SceneGeom G = getDeviceScene();
 
     // -------------------------
-    // Intersect & keep nearest
+    // Intersect
     // -------------------------
     Hit hit{};
-    hit.t = dInf();
-    hit.hit = false;
-    for (int i = 0; i < G.numQuads; ++i) {
-        if (float tHit; G.quads[i].intersect(ray, tHit) && tHit < hit.t) {
-            hit.t = tHit;
-            hit.hit = true;
-            hit.P = ray.at(tHit);
-            hit.N = G.quads[i].normal; // quads have a constant normal
-            hit.mat = G.quads[i].material;
-        }
-    }
-
-    for (int i = 0; i < G.numSpheres; ++i) {
-        if (float tHit; G.spheres[i].intersect(ray.origin, ray.direction, tHit) && tHit < hit.t) {
-            hit.t = tHit;
-            hit.hit = true;
-            hit.P = ray.at(tHit);
-            hit.N = (hit.P - G.spheres[i].center).normalize();
-            hit.mat = G.spheres[i].material;
-        }
-    }
+    traceClosest(ray, G, hit);
 
     // -------------------------
     // Shading (unified)
@@ -102,7 +76,7 @@ __global__ void raytrace(uchar3 *buffer, int width, int height) {
     constexpr int maxDepth = 2;
 
     // Per-pixel RNG seed
-    uint32_t seed = 0u
+    const uint32_t seed = 0u
                     ^ (0x9E3779B1u * (static_cast<uint32_t>(x) + 1u))
                     ^ (0x85EBCA77u * (static_cast<uint32_t>(y) + 1u));
 

@@ -46,7 +46,7 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height,
     // ------------------------
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            constexpr float kInf = 1e20f;
+            //constexpr float kInf = 1e20f;
             const int idx = y * width + x;
 
             // ------------------------
@@ -85,36 +85,7 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height,
             // Intersection test
             // ------------------------
             Hit hit{};
-            hit.t = kInf;
-            hit.hit = false;
-
-            // ------------------------
-            // Quads Intersection
-            // ------------------------
-            for (int i = 0; i < W.numQuads; ++i) {
-                float tHit;
-                if (W.quads[i].intersect(ray, tHit) && tHit < hit.t) {
-                    hit.t = tHit;
-                    hit.hit = true;
-                    hit.P = ray.at(tHit);
-                    hit.N = W.quads[i].normal;
-                    hit.mat = W.quads[i].material;
-                }
-            }
-
-            // ------------------------
-            // Sphere Intersection
-            // ------------------------
-            for (int i = 0; i < W.numSpheres; ++i) {
-                float tHit;
-                if (W.spheres[i].intersect(ray.origin, ray.direction, tHit) && tHit < hit.t) {
-                    hit.t = tHit;
-                    hit.hit = true;
-                    hit.P = ray.at(tHit);
-                    hit.N = (hit.P - W.spheres[i].center).normalize();
-                    hit.mat = W.spheres[i].material;
-                }
-            }
+            traceClosest(ray, G, hit);
 
             // -------------------------
             // Shading (unified)
@@ -124,7 +95,7 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height,
             const int maxDepth = 2; // primary + one bounce; adjust as needed
 
             // Per-pixel RNG seed
-            uint32_t seed = 0u
+            const uint32_t seed = 0u
                             ^ (0x9E3779B1u * (static_cast<uint32_t>(x) + 1u))
                             ^ (0x85EBCA77u * (static_cast<uint32_t>(y) + 1u));
 

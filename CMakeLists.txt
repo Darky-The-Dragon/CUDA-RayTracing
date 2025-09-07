@@ -24,6 +24,12 @@ set(SOURCES
         src/postprocess.cu
         src/raytracer.cu
         src/ui/menu.cu
+        src/device_scene.cu
+        src/io/image_io.cu
+)
+
+list(APPEND SOURCES
+        include/third_party/lodepng/lodepng.cpp
 )
 
 set(HEADERS
@@ -50,6 +56,8 @@ set(HEADERS
         include/scenes/world_build.cuh
         include/ui/menu.cuh
         include/rendering/device_scene.cuh
+        include/io/image_io.cuh
+        include/third_party/lodepng/lodepng.h
 )
 
 add_executable(CUDA_RayTracing ${SOURCES} ${HEADERS})

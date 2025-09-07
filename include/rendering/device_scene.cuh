@@ -7,9 +7,15 @@
 #define RENDERING_DEVICE_SCENE_CUH
 
 #include <cuda_runtime.h>
-#include "geometry/quad.cuh"       // Quad
-#include "geometry/sphere.cuh"     // Sphere
-#include "rendering/shader.cuh"    // SceneGeom
+#include "geometry/quad.cuh"
+#include "geometry/sphere.cuh"
+#include "rendering/shader.cuh"
+
+struct RuntimeConfig;
+struct WorldBuffers;
+
+void uploadSceneToDevice(const WorldBuffers& W);
+void uploadDebugToDevice(const RuntimeConfig& rc);
 
 // Device-side scene buffers (SIZED DEFINITIONS live in src/main.cu only!)
 #ifdef __CUDACC__

@@ -50,29 +50,9 @@ struct RuntimeConfig {
     int outputFormat = 0; ///< 0=PPM(P6), 1=PNG, 2=JPEG.
     bool labelOutput = false; ///< Overlay label text on images.
     bool openWhenDone = false; ///< Auto-open images after saving.
-};
-
-/// ------------------------------------------------------------------------
-/// @brief Legacy render options (kept only if still in use).
-/// @note Prefer `RuntimeConfig`. Safe to remove when unused.
-/// ------------------------------------------------------------------------
-struct RenderConfig {
-    // Lighting / Shadows
-    bool useSoftShadows = true; ///< Enable/disable soft shadow sampling.
-    int softShadowSamples = 16; ///< Number of shadow rays per sample.
-
-    // Post-processing
-    bool enablePostFX = false; ///< Master toggle for post-processing.
-    bool useBilateral = false; ///< If true, use bilateral filter instead of Gaussian.
-
-    // Gaussian filter parameters
-    int gaussianRadius = 2; ///< Kernel radius for Gaussian blur.
-    float gaussianSigma = 1.2f; ///< Standard deviation of Gaussian.
-
-    // Bilateral filter parameters
-    int bilateralRadius = 3; ///< Kernel radius for bilateral filter.
-    float bilateralSigmaSpatial = 2.0f; ///< Spatial sigma (distance falloff).
-    float bilateralSigmaRange = 24.0f; ///< Range sigma (intensity falloff).
+    int exportFormat = 0; /// 0=PPM, 1=PNG
+    bool autoOpenPreview = false; /// open exported image with OS default app
+    bool addWatermark = false; /// put “CPU/GPU | PostFX:Gaussian/Bilateral/Off” at bottom-right
 };
 
 #endif // CONFIG_CONFIG_CUH
