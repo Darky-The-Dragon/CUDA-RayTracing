@@ -110,7 +110,7 @@ HD FINL bool dbgNormals() {
 /// @note Internally delegates to Sphere::intersectBoth.
 ///       Reports true only if at least one intersection is in front of the ray origin.
 /// ----------------------------------------------------------------------------
-HD FINL bool intersectsSphere(const Ray &ray, const Vec3 &center, float radius) {
+HD FINL bool intersectsSphere(const Ray &ray, const Vec3 &center, const float radius) {
     Sphere s;
     s.center = center;
     s.radius = radius;
@@ -118,9 +118,8 @@ HD FINL bool intersectsSphere(const Ray &ray, const Vec3 &center, float radius) 
     float t0, t1;
     if (!s.intersectBoth(ray.origin, ray.direction, t0, t1)) return false;
 
-    const float eps = 1e-6f;
     const float tmax = (t0 < t1) ? t1 : t0;
-    return tmax > eps;
+    return tmax > num::kEps();
 }
 
 /// ----------------------------------------------------------------------------
@@ -134,8 +133,7 @@ HD FINL bool intersectsSphere(const Ray &ray, const Vec3 &center, float radius) 
 HD FINL bool renderLightDebug(const Ray &ray, const Light &light, uchar3 &outColor) {
 #if DEBUG_DRAW_LIGHT_SPHERE
     if (!dbgLightSphere()) return false;
-    const Vec3 lightPos = light.position;
-    if (intersectsSphere(ray, lightPos, kLightSphereRadius)) {
+    if (const Vec3 lightPos = light.position; intersectsSphere(ray, lightPos, kLightSphereRadius)) {
         outColor = light.color;
         return true;
     }
@@ -163,9 +161,8 @@ HD FINL bool renderLightDirectionRay(const Ray &ray, const Light &light, uchar3 
     if (light.type == POINT) return false;
 
     const Vec3 dirNorm = light.direction.normalize();
-    const Vec3 lineMid = light.position + dirNorm * (0.5f * kArrowBodyLength);
 
-    if (intersectsSphere(ray, lineMid, kArrowBodyRadius)) {
+    if (const Vec3 lineMid = light.position + dirNorm * (0.5f * kArrowBodyLength); intersectsSphere(ray, lineMid, kArrowBodyRadius)) {
         outColor = make_uchar3(255, 0, 255);
         return true;
     }

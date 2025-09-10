@@ -24,7 +24,6 @@
 #ifndef RENDERING_POSTPROCESS_CUH
 #define RENDERING_POSTPROCESS_CUH
 
-#pragma once
 #include <cuda_runtime.h>
 
 
@@ -39,7 +38,7 @@ namespace PostFX {
     /// @struct Params
     /// @brief Configuration parameters for post-processing filters.
     ///
-    /// @param filte1r            Filter type (None, Gaussian, Bilateral).
+    /// @param filter            Filter type (None, Gaussian, Bilateral).
     /// @param gaussianRadius    Kernel radius for Gaussian blur.
     /// @param gaussianSigma     Standard deviation for Gaussian blur.
     /// @param bilateralRadius   Window radius for Bilateral filter.

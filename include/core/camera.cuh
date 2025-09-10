@@ -16,7 +16,7 @@
 #define CORE_CAMERA_CUH
 
 #include <cuda_runtime.h>
-#include "macros.cuh"
+#include "core/macros.cuh"
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 
