@@ -14,6 +14,7 @@
 #define CONFIG_DEFAULTS_CUH
 
 #include "core/colors.cuh"
+#include "core/macros.cuh"
 #include "rendering/light.cuh"
 
 // ---------------------------------------------------------------------------
@@ -24,7 +25,7 @@
 /// @brief Default camera vertical field of view (degrees).
 /// @return Vertical FOV in degrees (default: 90.0f).
 /// ----------------------------------------------------------------------------
-__host__ __device__ inline float defaultCameraFovDeg() {
+HD inline float defaultCameraFovDeg() {
     return 90.0f;
 }
 
@@ -32,7 +33,7 @@ __host__ __device__ inline float defaultCameraFovDeg() {
 /// @brief Default background color (gamma-encoded).
 /// @return RGB color as uchar3 (default: light blue).
 /// ----------------------------------------------------------------------------
-__host__ __device__ inline uchar3 defaultBackgroundU8() {
+HD inline uchar3 defaultBackgroundU8() {
     return Colors::LightBlue();
 }
 
@@ -52,7 +53,7 @@ __host__ __device__ inline uchar3 defaultBackgroundU8() {
 ///   - Radius: 0.20 ( > 0 enables soft shadows as an area emitter )
 /// @return A Light configured with the defaults above.
 /// ----------------------------------------------------------------------------
-__host__ __device__ inline Light defaultLight() {
+HD inline Light defaultLight() {
     return Light{
         POINT,
         Vec3(0.0f, -0.9f, 0.0f),
@@ -71,19 +72,19 @@ __host__ __device__ inline Light defaultLight() {
 /// @brief Master toggle for soft shadow sampling.
 /// @return true to enable soft shadows; false for hard shadows.
 /// ----------------------------------------------------------------------------
-__host__ __device__ inline bool defaultUseSoftShadows() { return true; }
+HD inline bool defaultUseSoftShadows() { return true; }
 
 /// ----------------------------------------------------------------------------
 /// @brief Default number of soft-shadow samples per pixel.
 /// @return Sample count (GPU likes 32–64; CPU preview 9–16).
 /// ----------------------------------------------------------------------------
-__host__ __device__ inline int defaultSoftShadowSamples() { return 16; }
+HD inline int defaultSoftShadowSamples() { return 16; }
 
 /// ----------------------------------------------------------------------------
 /// @brief Enable bent/reflection-aware soft shadowing.
 /// @return true to enable bent shadows; false for hard-only.
 /// ----------------------------------------------------------------------------
-__host__ __device__ inline bool defaultUseBentShadows() { return true; }
+HD inline bool defaultUseBentShadows() { return true; }
 
 // ---------------------------------------------------------------------------
 // Post-processing (host-only; applied after rendering)

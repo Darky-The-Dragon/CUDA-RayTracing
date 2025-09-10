@@ -14,25 +14,8 @@
 #ifndef DEBUG_UTILS_CUH
 #define DEBUG_UTILS_CUH
 
-// --- Attribute portability ---------------------------------------------------
-// Make the header safe in host-only TUs (e.g., menu.cpp).
-#ifndef HD
-#  ifdef __CUDACC__
-#    define HD __host__ __device__
-#  else
-#    define HD
-#  endif
-#endif
-
-#ifndef FINL
-#  ifdef __CUDACC__
-#    define FINL __forceinline__
-#  else
-#    define FINL inline
-#  endif
-#endif
-
 #include <cuda_runtime.h>
+#include "core/macros.cuh"
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 #include "debug/debug_config.cuh"
@@ -158,7 +141,7 @@ HD FINL bool renderLightDebug(const Ray &ray, const Light &light, uchar3 &outCol
     }
     return false;
 #else
-    (void)ray; (void)light; (void)outColor;
+    (void) ray; (void) light; (void) outColor;
     return false;
 #endif
 }
@@ -188,7 +171,7 @@ HD FINL bool renderLightDirectionRay(const Ray &ray, const Light &light, uchar3 
     }
     return false;
 #else
-    (void)ray; (void)light; (void)outColor;
+    (void) ray; (void) light; (void) outColor;
     return false;
 #endif
 }

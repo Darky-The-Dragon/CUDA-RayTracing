@@ -16,6 +16,8 @@
 #ifndef CORE_VEC3_CUH
 #define CORE_VEC3_CUH
 
+#include "core/macros.cuh"
+
 /// ------------------------------------------------------------------------
 /// @brief Basic 3D vector structure.
 ///
@@ -30,16 +32,14 @@ struct Vec3 {
     /// ------------------------------------------------------------------------
     /// @brief Default constructor — initializes to (0, 0, 0).
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3() : x(0.0f), y(0.0f), z(0.0f) {
+    HD Vec3() : x(0.0f), y(0.0f), z(0.0f) {
     }
 
     /// ------------------------------------------------------------------------
     /// @brief Uniform initializer — sets all components to the same value.
     /// @param value Value assigned to x, y, and z.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    explicit Vec3(const float value) : x(value), y(value), z(value) {
+    HD explicit Vec3(const float value) : x(value), y(value), z(value) {
     }
 
     // ------------------------------------------------------------------------
@@ -48,8 +48,7 @@ struct Vec3 {
     /// @param y Y component value.
     /// @param z Z component value.
     // ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3(const float x, const float y, const float z) : x(x), y(y), z(z) {
+    HD Vec3(const float x, const float y, const float z) : x(x), y(y), z(z) {
     }
 
     // =========================
@@ -61,8 +60,7 @@ struct Vec3 {
     /// @param v Vector to add.
     /// @return Component-wise sum of this vector and @p v.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3 operator+(const Vec3 &v) const {
+    HD Vec3 operator+(const Vec3 &v) const {
         return {x + v.x, y + v.y, z + v.z};
     }
 
@@ -71,8 +69,7 @@ struct Vec3 {
     /// @param v Vector to subtract.
     /// @return Component-wise difference (this - @p v).
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3 operator-(const Vec3 &v) const {
+    HD Vec3 operator-(const Vec3 &v) const {
         return {x - v.x, y - v.y, z - v.z};
     }
 
@@ -80,8 +77,7 @@ struct Vec3 {
     /// @brief Unary negation (e.g., -v).
     /// @return Vector with all components negated.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3 operator-() const {
+    HD Vec3 operator-() const {
         return {-x, -y, -z};
     }
 
@@ -90,8 +86,7 @@ struct Vec3 {
     /// @param scalar Value to multiply each component by.
     /// @return Vector with each component scaled by @p scalar.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3 operator*(float scalar) const {
+    HD Vec3 operator*(float scalar) const {
         return {x * scalar, y * scalar, z * scalar};
     }
 
@@ -100,8 +95,7 @@ struct Vec3 {
     /// @param v Vector to multiply component-wise.
     /// @return Vector where each component is (this[i] * v[i]).
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3 operator*(const Vec3 &v) const {
+    HD Vec3 operator*(const Vec3 &v) const {
         return {x * v.x, y * v.y, z * v.z};
     }
 
@@ -110,8 +104,7 @@ struct Vec3 {
     /// @param scalar Value to divide each component by.
     /// @return Vector with each component divided by @p scalar.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3 operator/(float scalar) const {
+    HD Vec3 operator/(float scalar) const {
         return {x / scalar, y / scalar, z / scalar};
     }
 
@@ -124,8 +117,7 @@ struct Vec3 {
     /// @param other Vector to compute cross product with.
     /// @return Perpendicular vector equal to this × @p other.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3 cross(const Vec3 &other) const {
+    HD Vec3 cross(const Vec3 &other) const {
         return {
             y * other.z - z * other.y,
             z * other.x - x * other.z,
@@ -138,8 +130,7 @@ struct Vec3 {
     /// @param v Vector to compute dot product with.
     /// @return Scalar dot product value (this · @p v).
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    float dot(const Vec3 &v) const {
+    HD float dot(const Vec3 &v) const {
         return x * v.x + y * v.y + z * v.z;
     }
 
@@ -147,8 +138,7 @@ struct Vec3 {
     /// @brief Magnitude (length) of the vector.
     /// @return Euclidean length of the vector.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    float length() const {
+    HD float length() const {
         return sqrtf(x * x + y * y + z * z);
     }
 
@@ -156,9 +146,8 @@ struct Vec3 {
     /// @brief Returns a normalized copy (unit vector).
     /// @return Vector scaled to length 1 (or zero vector if length is 0).
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3 normalize() const {
-        float len = length();
+    HD Vec3 normalize() const {
+        const float len = length();
         return (len > 0.0f) ? (*this / len) : Vec3(0.0f);
     }
 };
@@ -173,8 +162,7 @@ struct Vec3 {
 /// @param v      3D vector on the right-hand side.
 /// @return A new Vec3 where each component is scaled by @p scalar.
 /// ----------------------------------------------------------------------------
-__host__ __device__
-inline Vec3 operator*(float scalar, const Vec3 &v) {
+HD inline Vec3 operator*(float scalar, const Vec3 &v) {
     return {v.x * scalar, v.y * scalar, v.z * scalar};
 }
 

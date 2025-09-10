@@ -16,6 +16,7 @@
 //   - CUDA‑friendly kernels with constant memory lookup tables.
 // ============================================================================
 
+#include "core/macros.cuh"
 #include "rendering/postprocess.cuh"
 #include <chrono>
 #include <vector>
@@ -273,7 +274,7 @@ static void uploadGaussianKernel(const int radius, const float sigma) {
 }
 
 /// Device integer clamp helper.
-__device__ __forceinline__ int clampInt_d(const int v, const int lo, const int hi) {
+__device__ FINL int clampInt_d(const int v, const int lo, const int hi) {
     return (v < lo) ? lo : (v > hi ? hi : v);
 }
 
@@ -369,7 +370,7 @@ static void uploadBilateralTables(int radius, const float sigmaSpatial, const fl
 }
 
 /// Compute integer luma (0..255) on device using BT.601‑like weights.
-__device__ __forceinline__ int luma_u8_dev(const uchar3 c) {
+__device__ FINL int luma_u8_dev(const uchar3 c) {
     return (kLumaR * c.x + kLumaG * c.y + kLumaB * c.z) >> kLumaShift;
 }
 

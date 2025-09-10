@@ -8,10 +8,10 @@
 #include "scenes/world_build.cuh"
 
 // Local CUDA guard (prints error & exits; safe in both Debug/Release)
-static inline void CUDA_CHECK_LOCAL(cudaError_t e, const char* what = nullptr) {
+static void CUDA_CHECK_LOCAL(cudaError_t e, const char *what = nullptr) {
     if (e != cudaSuccess) {
-    fprintf(stderr, "[CUDA CHECK] %s failed: %s\n", what ? what : "(call)", cudaGetErrorString(e));
-    std::exit(EXIT_FAILURE);
+        fprintf(stderr, "[CUDA CHECK] %s failed: %s\n", what ? what : "(call)", cudaGetErrorString(e));
+        std::exit(EXIT_FAILURE);
     }
 }
 

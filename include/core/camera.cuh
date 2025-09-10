@@ -16,6 +16,7 @@
 #define CORE_CAMERA_CUH
 
 #include <cuda_runtime.h>
+#include "macros.cuh"
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 
@@ -54,8 +55,7 @@ struct Camera {
 ///
 /// @note If your raster uses top-left origin, flip ndcY after computing it.
 /// ----------------------------------------------------------------------------
-__host__ __device__
-inline Ray generatePrimaryRay(
+HD inline Ray generatePrimaryRay(
     const Camera &cam, const unsigned int x, const unsigned int y, const int width, const int height) {
     // Basic guards
     const auto w = static_cast<float>(width);

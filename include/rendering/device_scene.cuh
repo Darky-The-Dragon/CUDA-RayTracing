@@ -14,8 +14,9 @@
 struct RuntimeConfig;
 struct WorldBuffers;
 
-void uploadSceneToDevice(const WorldBuffers& W);
-void uploadDebugToDevice(const RuntimeConfig& rc);
+void uploadSceneToDevice(const WorldBuffers &W);
+
+void uploadDebugToDevice(const RuntimeConfig &rc);
 
 // Device-side scene buffers (SIZED DEFINITIONS live in src/main.cu only!)
 #ifdef __CUDACC__
@@ -25,7 +26,7 @@ extern __constant__ unsigned char d_spheres_raw[]; // sizeof(Sphere) * MAX_SPHER
 extern __constant__ int d_numSpheres;
 
 // Lightweight device scene view
-static __device__ __forceinline__ SceneGeom getDeviceScene() {
+static __device__ FINL SceneGeom getDeviceScene() {
     SceneGeom G;
     G.quads = reinterpret_cast<const Quad *>(d_quads_raw);
     G.numQuads = d_numQuads;

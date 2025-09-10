@@ -18,8 +18,10 @@
 #ifndef GEOMETRY_PLANE_CUH
 #define GEOMETRY_PLANE_CUH
 
+#include "core/numerics.cuh"
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
+#include "io/image_io.cuh"
 
 /// ----------------------------------------------------------------------------
 /// @struct Plane
@@ -33,7 +35,7 @@ struct Plane {
     /// ------------------------------------------------------------------------
     /// @brief Default constructor — white plane at origin, zero normal.
     /// ------------------------------------------------------------------------
-    __host__ __device__
+    HD
 
     Plane()
         : planePoint(0.0f),
@@ -47,15 +49,13 @@ struct Plane {
     /// @param normal       Plane's surface normal (will be normalized internally).
     /// @param color        RGB color for quick debug shading.
     /// ------------------------------------------------------------------------
-    __host__ __device__
+    HD
+
     Plane(const Vec3 &pointOnPlane, const Vec3 &normal, const uchar3 color)
         : planePoint(pointOnPlane),
           normalVector(normal.normalize()),
           surfaceColor(color) {
     }
-
-    /// @brief Geometric epsilon to avoid precision issues in intersection tests.
-    static __host__ __device__ constexpr float EPSILON = 1e-6f;
 
     /// ------------------------------------------------------------------------
     /// @brief Ray–plane intersection test.
@@ -71,18 +71,19 @@ struct Plane {
     /// @param outDistance Output — hit distance t (valid only if true is returned).
     /// @return true if the ray intersects the plane in front of its origin.
     /// ------------------------------------------------------------------------
-    __host__ __device__
+    HD
+
     bool intersect(const Ray &ray, float &outDistance) const {
         const float denom = normalVector.dot(ray.direction);
 
         // denom ~ 0 → parallel or coplanar (ignored)
-        if (fabsf(denom) <= EPSILON) return false;
+        if (fabsf(denom) <= num::kEps()) return false;
 
         const Vec3 p0l0 = planePoint - ray.origin;
         const float t = p0l0.dot(normalVector) / denom;
 
         // Accept only hits in front of the origin
-        if (t > EPSILON) {
+        if (t > num::kEps()) {
             outDistance = t;
             return true;
         }
@@ -93,7 +94,7 @@ struct Plane {
     /// @brief Get the plane's surface normal (unit length).
     /// @return Normalized surface normal vector.
     /// ------------------------------------------------------------------------
-    __host__ __device__
+    HD
     Vec3 getNormal(const Vec3 &) const { return normalVector; }
 };
 

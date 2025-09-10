@@ -30,7 +30,7 @@
 /// @param count    Current number of spheres in the array (will be incremented).
 /// @param cap      Maximum number of spheres allowed in the array.
 /// ------------------------------------------------------------------------
-__host__ __device__ inline void addBasicSpheres(Sphere *spheres, int &count, int cap) {
+HD inline void addBasicSpheres(Sphere *spheres, int &count, const int cap) {
     auto push = [&](const Sphere &s) { if (count < cap) spheres[count++] = s; };
 
     // Center sphere (red)

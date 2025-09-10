@@ -58,6 +58,8 @@ set(HEADERS
         include/rendering/device_scene.cuh
         include/io/image_io.cuh
         include/third_party/lodepng/lodepng.h
+        include/core/macros.cuh
+        include/core/numerics.cuh
 )
 
 add_executable(CUDA_RayTracing ${SOURCES} ${HEADERS})

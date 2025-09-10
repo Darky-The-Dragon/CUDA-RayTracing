@@ -35,8 +35,8 @@
 /// @param boxSize  Size of the Cornell box edges (default = 4.0f units).
 /// @param groundY  Y position of the ground plane (default = 3.0f).
 /// ------------------------------------------------------------------------
-__host__ __device__ inline void buildCornellBox(
-    Quad *quads, float boxSize = 4.0f, float groundY = 3.0f) {
+HD inline void buildCornellBox(
+    Quad *quads, const float boxSize = 4.0f, float groundY = 3.0f) {
     const float half = boxSize * 0.5f;
 
     // Offset box vertically so it sits flush on the ground

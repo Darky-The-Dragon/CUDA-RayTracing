@@ -59,8 +59,7 @@ struct Light {
     ///  - range: 10.0
     ///  - coneAngle: 30.0 degrees
     /// ----------------------------------------------------------------------------
-    __host__ __device__
-    Light()
+    HD Light()
         : type(POINT),
           position(0.0f),
           direction(0.0f, -1.0f, 0.0f),
@@ -85,9 +84,8 @@ struct Light {
     ///                   Use 0.0f for an ideal point light; values > 0 enable
     ///                   area-light behavior (softer shadows proportional to radius).
     /// ----------------------------------------------------------------------------
-    __host__ __device__
-    Light(const LightType t, const Vec3 &position, const Vec3 &direction, const uchar3 color,
-          const float intensity, const float range, const float coneAngle, const float radius = 0.0f)
+    HD Light(const LightType t, const Vec3 &position, const Vec3 &direction, const uchar3 color,
+             const float intensity, const float range, const float coneAngle, const float radius = 0.0f)
         : type(t),
           position(position),
           direction(direction.normalize()),

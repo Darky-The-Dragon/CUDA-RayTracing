@@ -13,6 +13,7 @@
 #define CORE_RAY_CUH
 
 #include "vec3.cuh"
+#include "core/macros.cuh"
 
 /// ------------------------------------------------------------------------
 /// @brief Represents a mathematical ray in 3D space.
@@ -24,8 +25,7 @@ struct Ray {
     /// ------------------------------------------------------------------------
     /// @brief Default constructor — initializes to a zero-length ray.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Ray() : origin(Vec3(0.0f)), direction(Vec3(0.0f)) {
+    HD Ray() : origin(Vec3(0.0f)), direction(Vec3(0.0f)) {
     }
 
     /// ------------------------------------------------------------------------
@@ -33,8 +33,7 @@ struct Ray {
     /// @param origin    Start point of the ray.
     /// @param direction Direction vector (should be normalized).
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Ray(const Vec3 &origin, const Vec3 &direction)
+    HD Ray(const Vec3 &origin, const Vec3 &direction)
         : origin(origin), direction(direction) {
     }
 
@@ -47,8 +46,7 @@ struct Ray {
     /// @param t Distance along the ray.
     /// @return Point in 3D space at distance `t` from the ray origin.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Vec3 at(const float t) const {
+    HD Vec3 at(const float t) const {
         return origin + direction * t;
     }
 };

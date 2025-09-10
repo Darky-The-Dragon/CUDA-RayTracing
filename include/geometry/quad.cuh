@@ -21,6 +21,8 @@
 #ifndef GEOMETRY_QUAD_CUH
 #define GEOMETRY_QUAD_CUH
 
+#include "core/macros.cuh"
+#include "core/numerics.cuh"
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 #include "core/material.cuh"
@@ -41,8 +43,7 @@ struct Quad {
     /// @brief Default constructor.
     /// Creates a unit quad in the XY plane with a +Z facing normal.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Quad()
+    HD Quad()
         : position(0.0f),
           spanU(1.0f, 0.0f, 0.0f),
           spanV(0.0f, 1.0f, 0.0f),
@@ -57,8 +58,7 @@ struct Quad {
     /// @param spanV_     Second edge vector (V direction).
     /// @param material_  Surface material applied to the quad.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    Quad(const Vec3 &position_, const Vec3 &spanU_, const Vec3 &spanV_, const Material &material_)
+    HD Quad(const Vec3 &position_, const Vec3 &spanU_, const Vec3 &spanV_, const Material &material_)
         : position(position_), spanU(spanU_), spanV(spanV_), material(material_) {
         normal = spanU.cross(spanV).normalize();
     }
@@ -73,16 +73,13 @@ struct Quad {
     /// @param tHit    Output — smallest positive hit distance along the ray.
     /// @return true if the ray hits the quad within its bounds.
     /// ------------------------------------------------------------------------
-    __host__ __device__
-    bool intersect(const Ray &ray, float &tHit) const {
-        constexpr float EPS = 1e-4f; // geometric epsilon
-
+    HD bool intersect(const Ray &ray, float &tHit) const {
         // pVec = D × spanV
         const Vec3 pVec = ray.direction.cross(spanV);
 
         // det = spanU · pVec (parallel if ~0)
         const float det = spanU.dot(pVec);
-        if (fabsf(det) < EPS) return false;
+        if (fabsf(det) < num::kEps()) return false;
 
         const float invDet = 1.0f / det;
 
@@ -90,19 +87,16 @@ struct Quad {
         const Vec3 s = ray.origin - position;
 
         // u parameter along spanU
-        const float u = s.dot(pVec) * invDet;
-        if (u < 0.0f || u > 1.0f) return false;
+        if (const float u = s.dot(pVec) * invDet; u < 0.0f || u > 1.0f) return false;
 
         // qVec = s × spanU
         const Vec3 qVec = s.cross(spanU);
 
         // v parameter along spanV
-        const float v = ray.direction.dot(qVec) * invDet;
-        if (v < 0.0f || v > 1.0f) return false;
+        if (const float v = ray.direction.dot(qVec) * invDet; v < 0.0f || v > 1.0f) return false;
 
         // ray distance
-        const float t = spanV.dot(qVec) * invDet;
-        if (t > EPS) {
+        if (const float t = spanV.dot(qVec) * invDet; t > num::kEps()) {
             tHit = t;
             return true;
         }
