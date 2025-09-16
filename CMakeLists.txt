@@ -60,6 +60,7 @@ set(HEADERS
         include/third_party/lodepng/lodepng.h
         include/core/macros.cuh
         include/core/numerics.cuh
+        include/rendering/postfx_setup.cuh
 )
 
 add_executable(CUDA_RayTracing ${SOURCES} ${HEADERS})

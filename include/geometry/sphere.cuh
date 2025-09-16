@@ -1,102 +1,63 @@
-// ============================================================================
-// @file sphere.cuh
-// @brief Sphere primitive for ray tracing.
-//
-// Defines a simple geometric object with:
-//   - Center position
-//   - Radius
-//   - Surface material
-//
-// Supports ray–sphere intersection testing for shading and visibility queries.
-// Used in both CPU and GPU rendering paths.
-// ============================================================================
-
 #ifndef GEOMETRY_SPHERE_CUH
 #define GEOMETRY_SPHERE_CUH
 
-#include "core/vec3.cuh"
+#include "core/macros.cuh"
+#include "core/numerics.cuh"
 #include "core/material.cuh"
+#include "core/vec3.cuh"
+#include "core/ray.cuh"
 
-/// ----------------------------------------------------------------------------
-/// @struct Sphere
-/// @brief Represents a sphere with a center, radius, and surface material.
-/// ----------------------------------------------------------------------------
+// Canonical quadratic solver: |O + tD - C|^2 = r^2
+HD FINL bool sphereIntersectRoots(
+    const Vec3& O, const Vec3& D,
+    const Vec3& C, float r,
+    float& t0, float& t1)
+{
+    const Vec3  oc = O - C;
+    const float a  = D.dot(D);                 // =1 if D normalized
+    const float b  = 2.0f * oc.dot(D);
+    const float c  = oc.dot(oc) - r*r;
+    const float disc = b*b - 4.f*a*c;
+    if (disc < 0.0f) return false;
+
+    const float inv2a = 0.5f / a;
+    const float s     = sqrtf(disc);
+    float tn = (-b - s) * inv2a;
+    float tf = (-b + s) * inv2a;
+    if (tn > tf) { float tmp=tn; tn=tf; tf=tmp; }
+
+    t0 = tn; t1 = tf;
+    return true;
+}
+
 struct Sphere {
-    Vec3 center; ///< Sphere center in world space.
-    float radius; ///< Sphere radius (must be > 0).
-    Material material; ///< Surface material.
+    Vec3     center;
+    float    radius;
+    Material material;
 
-    /// ------------------------------------------------------------------------
-    /// @brief Default constructor.
-    /// Creates a unit sphere at the origin with the default material.
-    /// ------------------------------------------------------------------------
-    HD Sphere() : center(0.0f), radius(1.0f), material() {
-    }
+    HD FINL Sphere() : center(0.0f), radius(1.0f), material() {}
+    HD FINL Sphere(const Vec3& c, float r, const Material& m)
+        : center(c), radius(r), material(m) {}
 
-    /// ------------------------------------------------------------------------
-    /// @brief Fully parameterized constructor.
-    /// @param center   Sphere center in world space.
-    /// @param radius   Sphere radius (must be > 0).
-    /// @param m        Material applied to the sphere's surface.
-    /// ------------------------------------------------------------------------
-    HD Sphere(const Vec3 &center, const float radius, const Material &m)
-        : center(center), radius(radius), material(m) {
-    }
-
-    /// ------------------------------------------------------------------------
-    /// @brief Ray–sphere intersection test.
-    ///
-    /// Solves the quadratic equation for intersection points:
-    ///   |O + tD - C|² = r²
-    ///
-    /// @param rayOrigin    Origin of the ray.
-    /// @param rayDirection Direction of the ray (should be normalized for stable t values).
-    /// @param outDistance  Output parameter — smallest positive intersection distance (t).
-    /// @return true if the ray hits the sphere in front of the origin.
-    /// ------------------------------------------------------------------------
-    HD bool intersect(const Vec3 &rayOrigin, const Vec3 &rayDirection, float &outDistance) const {
-        const Vec3 oc = rayOrigin - center;
-
-        const float a = rayDirection.dot(rayDirection); // = 1 if normalized
-        const float b = 2.0f * oc.dot(rayDirection);
-        const float c = oc.dot(oc) - radius * radius;
-
-        const float discriminant = b * b - 4.0f * a * c;
-        if (discriminant < 0.0f) return false;
-
-        const float sqrtDisc = sqrtf(discriminant);
-
-        if (const float t = (-b - sqrtDisc) / (2.0f * a); t > 0.001f) {
-            // ignore hits extremely close to origin
-            outDistance = t;
-            return true;
-        }
+    // Nearest valid hit (t >= kHitMinT)
+    HD FINL bool intersect(const Vec3& ro, const Vec3& rd, float& tHit) const {
+        float t0, t1;
+        if (!sphereIntersectRoots(ro, rd, center, radius, t0, t1)) return false;
+        if (t0 >= num::kHitMinT()) { tHit = t0; return true; }
+        if (t1 >= num::kHitMinT()) { tHit = t1; return true; }
         return false;
     }
 
-    /// ------------------------------------------------------------------------
-    /// @brief Sphere ray intersection returning both roots (entry/exit).
-    /// @param ro   Ray origin
-    /// @param rd   Ray (unit) direction
-    /// @param t0   [out] nearer root (entry)
-    /// @param t1   [out] farther root (exit)
-    /// @return True if the ray intersects; t0 <= t1 on success.
-    /// ------------------------------------------------------------------------
-    HD bool intersectBoth(const Vec3 &ro, const Vec3 &rd, float &t0, float &t1) const {
-        const Vec3 oc = ro - center;
-        const float b = oc.dot(rd);
-        const float c = oc.dot(oc) - radius * radius;
-        const float disc = b * b - c;
-        if (disc < 0.0f) return false;
-        const float s = sqrtf(disc);
-        t0 = -b - s;
-        t1 = -b + s;
-        if (t0 > t1) {
-            const float tmp = t0;
-            t0 = t1;
-            t1 = tmp;
-        }
-        return true;
+    // Both roots (entry/exit), regardless of kHitMinT policy
+    HD FINL bool intersectBoth(const Vec3& ro, const Vec3& rd, float& t0, float& t1) const {
+        return sphereIntersectRoots(ro, rd, center, radius, t0, t1);
+    }
+
+    // Any-hit (useful for shadows/gizmos)
+    HD FINL bool occludes(const Vec3& ro, const Vec3& rd) const {
+        float t0, t1;
+        if (!sphereIntersectRoots(ro, rd, center, radius, t0, t1)) return false;
+        return (t1 >= num::kHitMinT());
     }
 };
 

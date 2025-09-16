@@ -19,6 +19,7 @@ namespace fs = std::filesystem;
 #include "config/scene_config.cuh"
 #include "debug/debug_config.cuh"
 #include "rendering/device_scene.cuh"
+#include "rendering/postfx_setup.cuh"
 #include "rendering/raytrace.cuh"
 #include "rendering/cpu_raytracer.cuh"
 #include "rendering/postprocess.cuh"
@@ -75,23 +76,67 @@ int main() {
     // --- Collect runtime configuration from the user
     RuntimeConfig rc = promptUserForConfig();
 
-    // --- Derived sizes from the menu
+    // Build canonical PostFX params once
+    const PostFX::Params fx = PostFX::makeParams(rc);
+
+    // Labels
+    constexpr const char *kRawFxLabel = "Off";
+    const char *kPpFxLabel =
+            (fx.filter == PostFX::Filter::Gaussian)
+                ? "Gaussian"
+                : (fx.filter == PostFX::Filter::Bilateral)
+                      ? "Bilateral"
+                      : "Off";
+
+    // Common image settings
     const int WIDTH = rc.width;
     const int HEIGHT = rc.height;
-    const size_t IMAGE_BYTES = size_t(WIDTH) * size_t(HEIGHT) * sizeof(uchar3);
+    const size_t PIXELS = static_cast<size_t>(WIDTH) * static_cast<size_t>(HEIGHT);
+    const size_t IMAGE_BYTES = PIXELS * sizeof(uchar3);
 
-    // Ensure output dir exists
+    const bool wantPNG = (rc.exportFormat == 1);
+    const ExportFormat fmt = wantPNG ? ExportFormat::PNG : ExportFormat::PPM;
+
+    // Output base dir
     const std::string outDir = (fs::path(PROJECT_SOURCE_DIR) / "output").string();
     fs::create_directories(outDir);
     std::cout << "[INFO] Output directory: " << outDir << "\n";
+
+    // Small helpers to avoid repetition
+    auto make_path = [&](const std::string_view stem) -> std::string {
+        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
+        fs::create_directories(subdir);
+        return (subdir / (std::string(stem) + (wantPNG ? ".png" : ".ppm"))).string();
+    };
+
+    auto save_with_optional_wm = [&](const std::string &path,
+                                     const uchar3 *data,
+                                     std::string_view label) {
+        if (rc.addWatermark && !label.empty()) {
+            std::vector<uchar3> tmp(PIXELS);
+            std::memcpy(tmp.data(), data, IMAGE_BYTES);
+            addWatermarkInPlace(tmp, WIDTH, HEIGHT, std::string(label));
+            if (!saveImage(path, tmp.data(), WIDTH, HEIGHT, fmt))
+                std::cerr << "[ERROR] Failed to save image: " << path << "\n";
+            else
+                std::cout << "[INFO] Image saved: " << path << "\n";
+        } else {
+            if (!saveImage(path, data, WIDTH, HEIGHT, fmt))
+                std::cerr << "[ERROR] Failed to save image: " << path << "\n";
+            else
+                std::cout << "[INFO] Image saved: " << path << "\n";
+        }
+        if (rc.autoOpenPreview) (void) openPreview(path);
+    };
 
     // ---------------- GPU Raytracer ----------------
     uchar3 *d_buffer = nullptr;
     CUDA_CHECK(cudaMalloc(&d_buffer, IMAGE_BYTES));
 
-    const dim3 threadsPerBlock(16, 16);
-    const dim3 blocksPerGrid((WIDTH + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                             (HEIGHT + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    constexpr dim3 threadsPerBlock(16, 16);
+    const dim3 blocksPerGrid(
+        (WIDTH + threadsPerBlock.x - 1) / threadsPerBlock.x,
+        (HEIGHT + threadsPerBlock.y - 1) / threadsPerBlock.y);
 
     std::cout << "[GPU DEBUG] Threads per block: " << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
     std::cout << "[GPU DEBUG] Total blocks: " << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
@@ -124,8 +169,7 @@ int main() {
         CUDA_CHECK(cudaEventRecord(start.ev));
         raytrace<<<blocksPerGrid, threadsPerBlock>>>(d_buffer, WIDTH, HEIGHT);
         CUDA_CHECK(cudaGetLastError());
-        // During debugging you can enable a full sync to catch launch faults at the call site:
-        // CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaDeviceSynchronize());
         CUDA_CHECK(cudaEventRecord(stop.ev));
         CUDA_CHECK(cudaEventSynchronize(stop.ev));
 
@@ -134,80 +178,26 @@ int main() {
         std::cout << "[TIMING] GPU raytracing took " << gpu_ms << " ms\n";
     }
 
-    // Copy GPU result to host & save
-    std::vector<uchar3> h_gpu(size_t(WIDTH) * size_t(HEIGHT));
-    CUDA_CHECK(cudaMemcpy(h_gpu.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost)); {
-        const bool wantPNG = (rc.exportFormat == 1);
-        const auto fmt = wantPNG ? ExportFormat::PNG : ExportFormat::PPM;
-
-        // choose subfolder based on format
-        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
-        fs::create_directories(subdir);
-
-        const std::string path = (subdir / (std::string("output_gpu") + (wantPNG ? ".png" : ".ppm"))).string();
-
-        if (rc.addWatermark) {
-            std::vector<uchar3> copy = h_gpu;
-            const std::string fxName = rc.enablePostFX ? (rc.fxFilter == 0 ? "Gaussian" : "Bilateral") : "Off";
-            addWatermarkInPlace(copy, WIDTH, HEIGHT, "GPU | PostFX:" + fxName);
-            if (!saveImage(path, copy.data(), WIDTH, HEIGHT, fmt))
-                std::cerr << "[ERROR] Failed to save GPU image: " << path << "\n";
-            else
-                std::cout << "[INFO] GPU image saved: " << path << "\n";
-        } else {
-            if (!saveImage(path, h_gpu.data(), WIDTH, HEIGHT, fmt))
-                std::cerr << "[ERROR] Failed to save GPU image: " << path << "\n";
-            else
-                std::cout << "[INFO] GPU image saved: " << path << "\n";
-        }
-        if (rc.autoOpenPreview) (void) openPreview(path);
-    }
+    // Copy GPU result to host & save (RAW)
+    std::vector<uchar3> h_gpu(PIXELS);
+    CUDA_CHECK(cudaMemcpy(h_gpu.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost));
+    save_with_optional_wm(make_path("output_gpu"), h_gpu.data(),
+                          std::string("GPU | PostFX:") + kRawFxLabel);
 
     // ---- GPU POST-FX (in-place on d_buffer), then save _pp
-    if (rc.enablePostFX) {
-        PostFX::Params fx{};
-        fx.filter = (rc.fxFilter == 0)
-                        ? PostFX::Filter::Gaussian
-                        : PostFX::Filter::Bilateral;
-        fx.gaussianRadius = rc.gaussRadius;
-        fx.gaussianSigma = rc.gaussSigma;
-        fx.bilateralRadius = rc.bilateralRadius;
-        fx.bilateralSigmaSpatial = rc.bilateralSigmaSpatial;
-        fx.bilateralSigmaRange = rc.bilateralSigmaRange;
-
+    if (fx.filter != PostFX::Filter::None) {
         PostFX::Timings fxT{};
         PostFX::applyGPU(d_buffer, WIDTH, HEIGHT, fx, &fxT);
         std::cout << "[TIMING] GPU post-FX took " << fxT.ms << " ms\n";
 
-        std::vector<uchar3> h_gpu_pp(size_t(WIDTH) * size_t(HEIGHT));
+        std::vector<uchar3> h_gpu_pp(PIXELS);
         CUDA_CHECK(cudaMemcpy(h_gpu_pp.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost));
-        const bool wantPNG = (rc.exportFormat == 1);
-        const auto fmt = wantPNG ? ExportFormat::PNG : ExportFormat::PPM;
-
-        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
-        fs::create_directories(subdir);
-
-        const std::string path = (subdir / (std::string("output_gpu_pp") + (wantPNG ? ".png" : ".ppm"))).string();
-
-        if (rc.addWatermark) {
-            std::vector<uchar3> copy = h_gpu_pp;
-            const std::string fxName = (rc.fxFilter == 0 ? "Gaussian" : "Bilateral");
-            addWatermarkInPlace(copy, WIDTH, HEIGHT, "GPU | PostFX:" + fxName);
-            if (!saveImage(path, copy.data(), WIDTH, HEIGHT, fmt))
-                std::cerr << "[ERROR] Failed to save GPU post-processed image: " << path << "\n";
-            else
-                std::cout << "[INFO] GPU post-processed image saved: " << path << "\n";
-        } else {
-            if (!saveImage(path, h_gpu_pp.data(), WIDTH, HEIGHT, fmt))
-                std::cerr << "[ERROR] Failed to save GPU post-processed image: " << path << "\n";
-            else
-                std::cout << "[INFO] GPU post-processed image saved: " << path << "\n";
-        }
-        if (rc.autoOpenPreview) (void) openPreview(path);
+        save_with_optional_wm(make_path("output_gpu_pp"), h_gpu_pp.data(),
+                              std::string("GPU | PostFX:") + kPpFxLabel);
     }
 
     // ---------------- CPU Raytracer ----------------
-    std::vector<uchar3> h_cpu(size_t(WIDTH) * size_t(HEIGHT));
+    std::vector<uchar3> h_cpu(PIXELS);
     std::cout << "\n[CPU DEBUG] Starting CPU raytracing...\n";
 
     // CPU follows the same scene & debug toggles chosen in the menu
@@ -220,66 +210,20 @@ int main() {
     cpu_raytrace(h_cpu.data(), WIDTH, HEIGHT, rc.sceneMask, dbgHost);
     const auto cpuEnd = std::chrono::high_resolution_clock::now();
     const double cpuMs = std::chrono::duration<double, std::milli>(cpuEnd - cpuStart).count();
-    std::cout << "[TIMING] CPU raytracing took " << cpuMs << " ms\n"; {
-        const bool wantPNG = (rc.exportFormat == 1);
-        const auto fmt = wantPNG ? ExportFormat::PNG : ExportFormat::PPM;
+    std::cout << "[TIMING] CPU raytracing took " << cpuMs << " ms\n";
 
-        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
-        fs::create_directories(subdir);
-
-        const std::string path = (subdir / (std::string("output_cpu") + (wantPNG ? ".png" : ".ppm"))).string();
-
-        if (rc.addWatermark) {
-            std::vector<uchar3> copy = h_cpu;
-            addWatermarkInPlace(copy, WIDTH, HEIGHT, "CPU | PostFX:Off");
-            if (!saveImage(path, copy.data(), WIDTH, HEIGHT, fmt))
-                std::cerr << "[ERROR] Failed to write CPU image: " << path << "\n";
-            else
-                std::cout << "[INFO] CPU image saved: " << path << "\n";
-        } else {
-            if (!saveImage(path, h_cpu.data(), WIDTH, HEIGHT, fmt))
-                std::cerr << "[ERROR] Failed to write CPU image: " << path << "\n";
-            else
-                std::cout << "[INFO] CPU image saved: " << path << "\n";
-        }
-        if (rc.autoOpenPreview) (void) openPreview(path);
-    }
+    // CPU RAW
+    save_with_optional_wm(make_path("output_cpu"), h_cpu.data(),
+                          std::string("CPU | PostFX:") + kRawFxLabel);
 
     // ---- CPU POST-FX (on copy), then save _pp
-    if (rc.enablePostFX) {
+    if (fx.filter != PostFX::Filter::None) {
         std::vector<uchar3> h_cpu_pp = h_cpu; // keep raw intact
-
-        PostFX::Params fx{};
-        fx.filter = (rc.fxFilter == 0)
-                        ? PostFX::Filter::Gaussian
-                        : PostFX::Filter::Bilateral;
-        fx.gaussianRadius = rc.gaussRadius;
-        fx.gaussianSigma = rc.gaussSigma;
-        fx.bilateralRadius = rc.bilateralRadius;
-        fx.bilateralSigmaSpatial = rc.bilateralSigmaSpatial;
-        fx.bilateralSigmaRange = rc.bilateralSigmaRange;
-
         PostFX::Timings fxT{};
         PostFX::applyCPU(h_cpu_pp.data(), WIDTH, HEIGHT, fx, &fxT);
         std::cout << "[TIMING] CPU post-FX took " << fxT.ms << " ms\n";
-
-        const bool wantPNG = (rc.exportFormat == 1);
-        const auto fmt = wantPNG ? ExportFormat::PNG : ExportFormat::PPM;
-
-        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
-        fs::create_directories(subdir);
-
-        const std::string path = (subdir / (std::string("output_cpu_pp") + (wantPNG ? ".png" : ".ppm"))).string();
-
-        if (rc.addWatermark) {
-            std::string fxName = (rc.fxFilter == 0 ? "Gaussian" : "Bilateral");
-            addWatermarkInPlace(h_cpu_pp, WIDTH, HEIGHT, "CPU | PostFX:" + fxName);
-        }
-        if (!saveImage(path, h_cpu_pp.data(), WIDTH, HEIGHT, fmt))
-            std::cerr << "[ERROR] Failed to write CPU post-processed image: " << path << "\n";
-        else
-            std::cout << "[INFO] CPU post-processed image saved: " << path << "\n";
-        if (rc.autoOpenPreview) (void) openPreview(path);
+        save_with_optional_wm(make_path("output_cpu_pp"), h_cpu_pp.data(),
+                              std::string("CPU | PostFX:") + kPpFxLabel);
     }
 
     // ---------------- Cleanup ----------------
