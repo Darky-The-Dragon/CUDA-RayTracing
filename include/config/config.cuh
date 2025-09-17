@@ -47,9 +47,6 @@ struct RuntimeConfig {
     bool dbgDrawNormals = false; ///< Visualize surface normals.
 
     // Output
-    int outputFormat = 0; ///< 0=PPM(P6), 1=PNG, 2=JPEG.
-    bool labelOutput = false; ///< Overlay label text on images.
-    bool openWhenDone = false; ///< Auto-open images after saving.
     int exportFormat = 0; /// 0=PPM, 1=PNG
     bool autoOpenPreview = false; /// open exported image with OS default app
     bool addWatermark = false; /// put “CPU/GPU | PostFX:Gaussian/Bilateral/Off” at bottom-right
