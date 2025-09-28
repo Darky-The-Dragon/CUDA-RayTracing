@@ -162,7 +162,8 @@ HD FINL bool renderLightDirectionRay(const Ray &ray, const Light &light, uchar3 
 
     const Vec3 dirNorm = light.direction.normalize();
 
-    if (const Vec3 lineMid = light.position + dirNorm * (0.5f * kArrowBodyLength); intersectsSphere(ray, lineMid, kArrowBodyRadius)) {
+    if (const Vec3 lineMid = light.position + dirNorm * (0.5f * kArrowBodyLength); intersectsSphere(
+        ray, lineMid, kArrowBodyRadius)) {
         outColor = make_uchar3(255, 0, 255);
         return true;
     }

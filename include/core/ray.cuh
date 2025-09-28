@@ -12,7 +12,7 @@
 #ifndef CORE_RAY_CUH
 #define CORE_RAY_CUH
 
-#include "vec3.cuh"
+#include "core/vec3.cuh"
 #include "core/macros.cuh"
 
 /// ------------------------------------------------------------------------

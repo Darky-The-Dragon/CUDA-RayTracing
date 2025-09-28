@@ -19,8 +19,8 @@ namespace num {
   // ===== Angles =====
   HD FINL constexpr float kPi() { return 3.14159265358979323846f; }
   HD FINL constexpr float kTwoPi() { return 6.2831853071795864769f; }
-  HD FINL constexpr float deg2rad(float d) { return d * (kPi() / 180.0f); }
-  HD FINL constexpr float rad2deg(float r) { return r * (180.0f / kPi()); }
+  HD FINL constexpr float deg2rad(const float d) { return d * (kPi() / 180.0f); }
+  HD FINL constexpr float rad2deg(const float r) { return r * (180.0f / kPi()); }
 
   // ===== Normalization & conversion helpers =====
   HD FINL constexpr float kInv255() { return 1.0f / 255.0f; }

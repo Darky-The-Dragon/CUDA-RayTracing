@@ -5,7 +5,6 @@
 #include "config/config.cuh" // for RuntimeConfig
 
 namespace PostFX {
-
     /// ---------------------------------------------------------------------------
     /// @brief Build canonical PostFX parameters from the runtime configuration.
     ///
@@ -13,8 +12,7 @@ namespace PostFX {
     /// PostFX::Params is the canonical form consumed by CPU/GPU pipelines.
     /// This function is the single translator between the two.
     /// ---------------------------------------------------------------------------
-    inline Params makeParams(const RuntimeConfig& rc)
-    {
+    inline Params makeParams(const RuntimeConfig &rc) {
         Params p{}; // start from defaults in postprocess.cuh
 
         if (!rc.enablePostFX) {
@@ -24,23 +22,25 @@ namespace PostFX {
 
         // Map UI selector to PostFX filter
         switch (rc.fxFilter) {
-            case 0: p.filter = Filter::Gaussian;  break;
-            case 1: p.filter = Filter::Bilateral; break;
-            default: p.filter = Filter::None;     break;
+            case 0: p.filter = Filter::Gaussian;
+                break;
+            case 1: p.filter = Filter::Bilateral;
+                break;
+            default: p.filter = Filter::None;
+                break;
         }
 
         // Gaussian parameters
         p.gaussianRadius = rc.gaussRadius;
-        p.gaussianSigma  = rc.gaussSigma;
+        p.gaussianSigma = rc.gaussSigma;
 
         // Bilateral parameters
-        p.bilateralRadius        = rc.bilateralRadius;
-        p.bilateralSigmaSpatial  = rc.bilateralSigmaSpatial;
-        p.bilateralSigmaRange    = rc.bilateralSigmaRange;
+        p.bilateralRadius = rc.bilateralRadius;
+        p.bilateralSigmaSpatial = rc.bilateralSigmaSpatial;
+        p.bilateralSigmaRange = rc.bilateralSigmaRange;
 
         return p;
     }
-
 } // namespace PostFX
 
 #endif // RENDERING_POSTFX_SETUP_CUH

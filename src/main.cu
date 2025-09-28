@@ -15,6 +15,7 @@
 
 namespace fs = std::filesystem;
 
+#include "core/macros.cuh"              // HD/FINL + CUDA_GUARD / CUDA_CHECK_LAUNCH_AND_SYNC
 #include "config/config.cuh"
 #include "config/scene_config.cuh"
 #include "debug/debug_config.cuh"
@@ -30,24 +31,11 @@ namespace fs = std::filesystem;
 #include "io/image_io.cuh"
 
 // ============================================================================
-// CUDA helpers & device-side constants
+// Device-side constants
 // ============================================================================
 
-/**
- * @brief CUDA error guard macro.
- * @details Aborts on failure and prints the CUDA error string.
- */
-#define CUDA_CHECK(call) do {                                      \
-    cudaError_t err__ = (call);                                    \
-    if (err__ != cudaSuccess) {                                    \
-        std::cerr << "[CUDA ERROR] " << #call << " -> "            \
-                  << cudaGetErrorString(err__) << "\n";            \
-        std::exit(EXIT_FAILURE);                                   \
-    }                                                              \
-} while (0)
-
-// ---- Device constants (definitions live here)
-__constant__ DebugConfig d_dbg; // as before
+// Debug toggles on device
+__constant__ DebugConfig d_dbg;
 
 // Make constant buffers 16-byte aligned to safely reinterpret_cast to Quad*/Sphere*
 __constant__ __align__(16) unsigned char d_quads_raw[sizeof(Quad) * MAX_QUADS];
@@ -59,19 +47,22 @@ __constant__ int d_numSpheres;
 static_assert(alignof(Quad) <= 16, "Quad alignment > 16; bump __align__ on d_quads_raw.");
 static_assert(alignof(Sphere) <= 16, "Sphere alignment > 16; bump __align__ on d_spheres_raw.");
 
-/**
- * @brief Small RAII wrapper for cudaEvent_t to ensure cleanup.
- */
+// ============================================================================
+// Small RAII for cudaEvent_t
+// ============================================================================
 struct CudaEvent {
     cudaEvent_t ev{};
-    CudaEvent() { CUDA_CHECK(cudaEventCreate(&ev)); }
-    ~CudaEvent() { cudaEventDestroy(ev); }
+    CudaEvent() { CUDA_GUARD(cudaEventCreate(&ev)); }
+    ~CudaEvent() { CUDA_GUARD(cudaEventDestroy(ev)); }
+
+    CudaEvent(const CudaEvent &) = delete;
+
+    CudaEvent &operator=(const CudaEvent &) = delete;
 };
 
 // ============================================================================
 // Main
 // ============================================================================
-
 int main() {
     // --- Collect runtime configuration from the user
     RuntimeConfig rc = promptUserForConfig();
@@ -104,7 +95,7 @@ int main() {
 
     // Small helpers to avoid repetition
     auto make_path = [&](const std::string_view stem) -> std::string {
-        fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
+        const fs::path subdir = fs::path(outDir) / (wantPNG ? "png" : "ppm");
         fs::create_directories(subdir);
         return (subdir / (std::string(stem) + (wantPNG ? ".png" : ".ppm"))).string();
     };
@@ -131,15 +122,17 @@ int main() {
 
     // ---------------- GPU Raytracer ----------------
     uchar3 *d_buffer = nullptr;
-    CUDA_CHECK(cudaMalloc(&d_buffer, IMAGE_BYTES));
+    CUDA_GUARD(cudaMalloc(&d_buffer, IMAGE_BYTES));
 
     constexpr dim3 threadsPerBlock(16, 16);
     const dim3 blocksPerGrid(
         (WIDTH + threadsPerBlock.x - 1) / threadsPerBlock.x,
         (HEIGHT + threadsPerBlock.y - 1) / threadsPerBlock.y);
 
-    std::cout << "[GPU DEBUG] Threads per block: " << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
-    std::cout << "[GPU DEBUG] Total blocks: " << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
+    std::cout << "[GPU DEBUG] Threads per block: "
+            << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
+    std::cout << "[GPU DEBUG] Total blocks: "
+            << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
 
     const uint64_t totalThreads =
             static_cast<uint64_t>(blocksPerGrid.x) * threadsPerBlock.x *
@@ -148,11 +141,11 @@ int main() {
 
     // Device stack (only needed if recursion is used on device)
     size_t cur = 0;
-    CUDA_CHECK(cudaDeviceGetLimit(&cur, cudaLimitStackSize));
+    CUDA_GUARD(cudaDeviceGetLimit(&cur, cudaLimitStackSize));
     std::cout << "[CUDA] current stack: " << cur << " bytes\n";
     static constexpr size_t WANT_STACK = 16 * 1024;
-    CUDA_CHECK(cudaDeviceSetLimit(cudaLimitStackSize, WANT_STACK));
-    CUDA_CHECK(cudaDeviceGetLimit(&cur, cudaLimitStackSize));
+    CUDA_GUARD(cudaDeviceSetLimit(cudaLimitStackSize, WANT_STACK));
+    CUDA_GUARD(cudaDeviceGetLimit(&cur, cudaLimitStackSize));
     std::cout << "[CUDA] new stack:     " << cur << " bytes\n";
 
     // Build scene once on host (bitmask) and upload to device constants
@@ -166,21 +159,22 @@ int main() {
     // Launch & time (scope ensures events are destroyed before optional reset)
     {
         CudaEvent start, stop;
-        CUDA_CHECK(cudaEventRecord(start.ev));
+        CUDA_GUARD(cudaEventRecord(start.ev));
+
         raytrace<<<blocksPerGrid, threadsPerBlock>>>(d_buffer, WIDTH, HEIGHT);
-        CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
-        CUDA_CHECK(cudaEventRecord(stop.ev));
-        CUDA_CHECK(cudaEventSynchronize(stop.ev));
+        CUDA_CHECK_LAUNCH_AND_SYNC(); // checks launch; in Debug also syncs
+
+        CUDA_GUARD(cudaEventRecord(stop.ev));
+        CUDA_GUARD(cudaEventSynchronize(stop.ev));
 
         float gpu_ms = 0.0f;
-        CUDA_CHECK(cudaEventElapsedTime(&gpu_ms, start.ev, stop.ev));
+        CUDA_GUARD(cudaEventElapsedTime(&gpu_ms, start.ev, stop.ev));
         std::cout << "[TIMING] GPU raytracing took " << gpu_ms << " ms\n";
     }
 
     // Copy GPU result to host & save (RAW)
     std::vector<uchar3> h_gpu(PIXELS);
-    CUDA_CHECK(cudaMemcpy(h_gpu.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost));
+    CUDA_GUARD(cudaMemcpy(h_gpu.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost));
     save_with_optional_wm(make_path("output_gpu"), h_gpu.data(),
                           std::string("GPU | PostFX:") + kRawFxLabel);
 
@@ -191,7 +185,7 @@ int main() {
         std::cout << "[TIMING] GPU post-FX took " << fxT.ms << " ms\n";
 
         std::vector<uchar3> h_gpu_pp(PIXELS);
-        CUDA_CHECK(cudaMemcpy(h_gpu_pp.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost));
+        CUDA_GUARD(cudaMemcpy(h_gpu_pp.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost));
         save_with_optional_wm(make_path("output_gpu_pp"), h_gpu_pp.data(),
                               std::string("GPU | PostFX:") + kPpFxLabel);
     }
@@ -227,7 +221,7 @@ int main() {
     }
 
     // ---------------- Cleanup ----------------
-    CUDA_CHECK(cudaFree(d_buffer));
-    CUDA_CHECK(cudaDeviceReset());
+    CUDA_GUARD(cudaFree(d_buffer));
+    CUDA_GUARD(cudaDeviceReset());
     return 0;
 }

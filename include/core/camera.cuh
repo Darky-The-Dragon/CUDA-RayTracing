@@ -17,6 +17,7 @@
 
 #include <cuda_runtime.h>
 #include "core/macros.cuh"
+#include "core/numerics.cuh"
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 
@@ -61,7 +62,7 @@ HD inline Ray generatePrimaryRay(
     const auto w = static_cast<float>(width);
     const auto h = static_cast<float>(height);
     const float aspect = (h > 0.0f) ? (w / h) : 1.0f;
-    const float fov_rad = cam.fov_deg * 3.14159265f / 180.0f;
+    const float fov_rad = num::deg2rad(cam.fov_deg);
     const float half_tan = tanf(0.5f * fov_rad);
 
     // NDC in [-1, 1]

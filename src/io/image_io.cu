@@ -19,6 +19,15 @@
 
 namespace fs = std::filesystem;
 
+// At top of image_io.cu
+#if defined(_WIN32)
+#define RT_PREVIEW_WINDOWS 1
+#include <windows.h>
+#include <shellapi.h>
+#else
+#define RT_PREVIEW_WINDOWS 0
+#endif
+
 // -------------------------------------------------------------------------------------------------
 // PPM (P6)
 // -------------------------------------------------------------------------------------------------
@@ -355,12 +364,13 @@ bool openPreview(const std::string &path) {
     }
     const std::string abs = toAbsolute(path);
     const std::wstring wabs(abs.begin(), abs.end());
-
+#if RT_PREVIEW_WINDOWS
     HINSTANCE r = ShellExecuteW(nullptr, L"open", wabs.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     if (const auto code = reinterpret_cast<intptr_t>(r); code <= 32) {
         std::cerr << "[PREVIEW] ShellExecuteW failed (code=" << code
                 << "): " << shellCodeMeaning(code) << " | Path: " << abs << "\n";
         return false;
+#endif
     }
     std::cout << "[PREVIEW] Opened: " << abs << "\n";
     return true;

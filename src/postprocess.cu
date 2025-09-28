@@ -1,36 +1,36 @@
 // ============================================================================
 // @file postprocess.cu
-// @brief CPU & GPU image post‑processing (Gaussian blur, Bilateral filter).
+// @brief CPU & GPU image post-processing (Gaussian blur, Bilateral filter).
 //
-// This translation unit implements small, deterministic post‑FX passes that
+// This translation unit implements small, deterministic post-FX passes that
 // run after the raytracing stage. Both CPU and GPU code paths are provided
-// to keep feature parity and enable apples‑to‑apples comparisons.
+// to keep feature parity and enable apples-to-apples comparisons.
 //
 // Implemented filters (uchar3 RGB, in-place or device buffer):
 //   - Separable Gaussian blur
-//   - Edge‑preserving Bilateral filter (luma‑guided)
+//   - Edge-preserving Bilateral filter (luma-guided)
 //
 // Design goals:
 //   - Readable, parameterized code (no magic numbers).
 //   - Identical math on CPU/GPU (matching results).
-//   - CUDA‑friendly kernels with constant memory lookup tables.
+//   - CUDA-friendly kernels with constant memory lookup tables.
 // ============================================================================
 
 #include "core/macros.cuh"
 #include "rendering/postprocess.cuh"
 #include <chrono>
 #include <vector>
-#include <cmath>   // std::lround, std::exp
+#include <cmath>
 
 // ============================================================================
-// Shared helpers & constants (TU‑local)
+// Shared helpers & constants (TU-local)
 // ============================================================================
 namespace {
     constexpr float kU8Max = 255.0f;
     constexpr int kU8Range = 256; // 0..255 inclusive
     constexpr float kSmallEps = 1e-8f;
 
-    // Luma weights (≈ ITU‑R BT.601, scaled by 256 then shifted back)
+    // Luma weights (≈ ITU-R BT.601, scaled by 256 then shifted back)
     constexpr int kLumaR = 77; // ~0.299 * 256
     constexpr int kLumaG = 150; // ~0.587 * 256
     constexpr int kLumaB = 29; // ~0.114 * 256
@@ -40,19 +40,19 @@ namespace {
     constexpr int kBlockDimX = 16;
     constexpr int kBlockDimY = 16;
 
-    // Constant‑memory limits
+    // Constant-memory limits
     constexpr int kGaussianMaxRadius = 31; // (2R+1) <= 63
     constexpr int kSpatialMaxRadius = 32; // (2R+1) <= 65
 
     /// ------------------------------------------------------------------------
     /// @brief Clamp an integer to [lo, hi].
     /// ------------------------------------------------------------------------
-    inline int clampInt(const int v, const int lo, const int hi) {
+    int clampInt(const int v, const int lo, const int hi) {
         return (v < lo) ? lo : (v > hi ? hi : v);
     }
 
     /// ------------------------------------------------------------------------
-    /// @brief Pack three floats into an 8‑bit RGB pixel with rounding & clamp.
+    /// @brief Pack three floats into an 8-bit RGB pixel with rounding & clamp.
     /// @return uchar3 with values clamped to [0, 255] and rounded.
     /// ------------------------------------------------------------------------
     inline uchar3 packRGB_u8(const float r, const float g, const float b) {
@@ -64,7 +64,7 @@ namespace {
     }
 
     /// ------------------------------------------------------------------------
-    /// @brief Compute integer luma (0..255) using BT.601‑like weights.
+    /// @brief Compute integer luma (0..255) using BT.601-like weights.
     /// ------------------------------------------------------------------------
     inline int luma_u8_host(const uchar3 c) {
         return (kLumaR * c.x + kLumaG * c.y + kLumaB * c.z) >> kLumaShift;
@@ -101,7 +101,7 @@ namespace {
         return kernel;
     }
 
-    /// Apply separable Gaussian blur to an RGB image (in‑place).
+    /// Apply separable Gaussian blur to an RGB image (in-place).
     void cpuGaussianRGB(uchar3 *image, const int width, const int height,
                         const int radius, const float sigma) {
         if (!image || width <= 0 || height <= 0) return;
@@ -145,17 +145,17 @@ namespace {
         }
     }
 
-    /// Apply bilateral filter to an RGB image (in‑place, luma‑guided).
+    /// Apply bilateral filter to an RGB image (in-place, luma-guided).
     void cpuBilateralRGB(uchar3 *image, const int width, const int height,
                          const int radius, const float sigmaSpatial, const float sigmaRange) {
         if (!image || width <= 0 || height <= 0) return;
 
         // Snapshot source to avoid feedback within the window
-        std::vector<uchar3> src(image, image + static_cast<size_t>(width) * static_cast<size_t>(height));
+        const std::vector src(image, image + static_cast<size_t>(width) * static_cast<size_t>(height));
 
         // Spatial weights ( (2R+1)² table )
         const int ksize = 2 * radius + 1;
-        std::vector<float> spatial(static_cast<size_t>(ksize) * static_cast<size_t>(ksize), 1.0f);
+        std::vector spatial(static_cast<size_t>(ksize) * static_cast<size_t>(ksize), 1.0f);
         if (radius > 0 && sigmaSpatial > 0.0f) {
             const float invTwoSigmaS2 = 1.0f / (2.0f * sigmaSpatial * sigmaSpatial);
             for (int dy = -radius; dy <= radius; ++dy) {
@@ -171,16 +171,15 @@ namespace {
         float range[kU8Range];
 
         // Accept both: if <= 1 treat as normalized (scale to 0..255), else assume absolute luma units
-        const float sigmaR = (sigmaRange <= 1.0f) ? (sigmaRange * 255.0f) : sigmaRange;
 
-        if (sigmaR > 0.0f) {
+        if (const float sigmaR = (sigmaRange <= 1.0f) ? (sigmaRange * 255.0f) : sigmaRange; sigmaR > 0.0f) {
             const float invTwoSigmaR2 = 1.0f / (2.0f * sigmaR * sigmaR);
             for (int d = 0; d < kU8Range; ++d) {
-                const float df = static_cast<float>(d);
+                const auto df = static_cast<float>(d);
                 range[d] = std::exp(-(df * df) * invTwoSigmaR2);
             }
         } else {
-            for (int d = 0; d < kU8Range; ++d) range[d] = 1.0f;
+            for (float & d : range) d = 1.0f;
         }
 
         // Filter each pixel
@@ -268,9 +267,9 @@ static void uploadGaussianKernel(const int radius, const float sigma) {
         const float invSum = (sum > kSmallEps) ? (1.0f / sum) : 1.0f;
         for (float &w: kernel) w *= invSum;
     }
-    cudaMemcpyToSymbol(cGaussian, kernel.data(),
-                       sizeof(float) * static_cast<size_t>(gGaussianSize),
-                       0, cudaMemcpyHostToDevice);
+    CUDA_GUARD(cudaMemcpyToSymbol(cGaussian, kernel.data(),
+        sizeof(float) * static_cast<size_t>(gGaussianSize),
+        0, cudaMemcpyHostToDevice));
 }
 
 /// Device integer clamp helper.
@@ -350,8 +349,8 @@ static void uploadBilateralTables(int radius, const float sigmaSpatial, const fl
             }
         }
     }
-    cudaMemcpyToSymbol(cSpatial, spatial.data(),
-                       sizeof(float) * spatial.size(), 0, cudaMemcpyHostToDevice);
+    CUDA_GUARD(cudaMemcpyToSymbol(cSpatial, spatial.data(),
+        sizeof(float) * spatial.size(), 0, cudaMemcpyHostToDevice));
 
     // Range (0..255); parameter is normalized (0..1) or absolute (>=1)
     float range[kU8Range];
@@ -366,15 +365,15 @@ static void uploadBilateralTables(int radius, const float sigmaSpatial, const fl
     } else {
         for (int d = 0; d < kU8Range; ++d) range[d] = 1.0f;
     }
-    cudaMemcpyToSymbol(cRange, range, sizeof(float) * kU8Range, 0, cudaMemcpyHostToDevice);
+    CUDA_GUARD(cudaMemcpyToSymbol(cRange, range, sizeof(float) * kU8Range, 0, cudaMemcpyHostToDevice));
 }
 
-/// Compute integer luma (0..255) on device using BT.601‑like weights.
+/// Compute integer luma (0..255) on device using BT.601-like weights.
 __device__ FINL int luma_u8_dev(const uchar3 c) {
     return (kLumaR * c.x + kLumaG * c.y + kLumaB * c.z) >> kLumaShift;
 }
 
-/// Naive bilateral filter kernel (single pass, luma‑guided).
+/// Naive bilateral filter kernel (single pass, luma-guided).
 __global__ void kBilateralNaive(const uchar3 * __restrict__ in,
                                 uchar3 * __restrict__ out,
                                 const int width, const int height,
@@ -427,11 +426,11 @@ void PostFX::applyGPU(uchar3 *d_img, const int width, const int height,
     }
 
     cudaEvent_t start{}, stop{};
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start, stream);
+    CUDA_GUARD(cudaEventCreate(&start));
+    CUDA_GUARD(cudaEventCreate(&stop));
+    CUDA_GUARD(cudaEventRecord(start, stream));
 
-    const dim3 block(kBlockDimX, kBlockDimY);
+    constexpr dim3 block(kBlockDimX, kBlockDimY);
     const dim3 grid((width + block.x - 1) / block.x,
                     (height + block.y - 1) / block.y);
 
@@ -442,12 +441,16 @@ void PostFX::applyGPU(uchar3 *d_img, const int width, const int height,
         uploadGaussianKernel(radius, p.gaussianSigma);
 
         uchar3 *d_tmp = nullptr;
-        cudaMallocAsync(&d_tmp, static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar3), stream);
+        CUDA_GUARD(cudaMallocAsync(&d_tmp,
+            static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar3), stream));
 
         kGaussianH<<<grid, block, 0, stream>>>(d_img, d_tmp, width, height, gGaussianRadius);
-        kGaussianV<<<grid, block, 0, stream>>>(d_tmp, d_img, width, height, gGaussianRadius);
+        CUDA_GUARD(cudaGetLastError());
 
-        cudaFreeAsync(d_tmp, stream);
+        kGaussianV<<<grid, block, 0, stream>>>(d_tmp, d_img, width, height, gGaussianRadius);
+        CUDA_GUARD(cudaGetLastError());
+
+        CUDA_GUARD(cudaFreeAsync(d_tmp, stream));
     } else {
         // Bilateral
         const int radius = (p.bilateralRadius > kSpatialMaxRadius)
@@ -456,19 +459,22 @@ void PostFX::applyGPU(uchar3 *d_img, const int width, const int height,
         uploadBilateralTables(radius, p.bilateralSigmaSpatial, p.bilateralSigmaRange);
 
         uchar3 *d_tmp = nullptr;
-        cudaMallocAsync(&d_tmp, static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar3), stream);
+        CUDA_GUARD(cudaMallocAsync(&d_tmp,
+            static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar3), stream));
 
         kBilateralNaive<<<grid, block, 0, stream>>>(d_img, d_tmp, width, height, gSpatialRadius, gSpatialSize);
-        cudaMemcpyAsync(d_img, d_tmp,
-                        static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar3),
-                        cudaMemcpyDeviceToDevice, stream);
+        CUDA_GUARD(cudaGetLastError());
 
-        cudaFreeAsync(d_tmp, stream);
+        CUDA_GUARD(cudaMemcpyAsync(d_img, d_tmp,
+            static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar3),
+            cudaMemcpyDeviceToDevice, stream));
+
+        CUDA_GUARD(cudaFreeAsync(d_tmp, stream));
     }
 
-    cudaEventRecord(stop, stream);
-    cudaEventSynchronize(stop);
-    if (t) { cudaEventElapsedTime(&t->ms, start, stop); }
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
+    CUDA_GUARD(cudaEventRecord(stop, stream));
+    CUDA_GUARD(cudaEventSynchronize(stop));
+    if (t) { CUDA_GUARD(cudaEventElapsedTime(&t->ms, start, stop)); }
+    CUDA_GUARD(cudaEventDestroy(start));
+    CUDA_GUARD(cudaEventDestroy(stop));
 }

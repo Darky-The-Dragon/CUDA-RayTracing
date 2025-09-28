@@ -18,10 +18,10 @@
 #ifndef GEOMETRY_PLANE_CUH
 #define GEOMETRY_PLANE_CUH
 
+#include "core/macros.cuh"
 #include "core/numerics.cuh"
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
-#include "io/image_io.cuh"
 
 /// ----------------------------------------------------------------------------
 /// @struct Plane
@@ -49,9 +49,7 @@ struct Plane {
     /// @param normal       Plane's surface normal (will be normalized internally).
     /// @param color        RGB color for quick debug shading.
     /// ------------------------------------------------------------------------
-    HD
-
-    Plane(const Vec3 &pointOnPlane, const Vec3 &normal, const uchar3 color)
+    HD Plane(const Vec3 &pointOnPlane, const Vec3 &normal, const uchar3 color)
         : planePoint(pointOnPlane),
           normalVector(normal.normalize()),
           surfaceColor(color) {
@@ -71,9 +69,7 @@ struct Plane {
     /// @param outDistance Output — hit distance t (valid only if true is returned).
     /// @return true if the ray intersects the plane in front of its origin.
     /// ------------------------------------------------------------------------
-    HD
-
-    bool intersect(const Ray &ray, float &outDistance) const {
+    HD bool intersect(const Ray &ray, float &outDistance) const {
         const float denom = normalVector.dot(ray.direction);
 
         // denom ~ 0 → parallel or coplanar (ignored)
@@ -94,8 +90,7 @@ struct Plane {
     /// @brief Get the plane's surface normal (unit length).
     /// @return Normalized surface normal vector.
     /// ------------------------------------------------------------------------
-    HD
-    Vec3 getNormal(const Vec3 &) const { return normalVector; }
+    HD Vec3 getNormal(const Vec3 &) const { return normalVector; }
 };
 
 #endif // GEOMETRY_PLANE_CUH

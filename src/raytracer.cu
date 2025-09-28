@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include "core/camera.cuh"
+#include "core/macros.cuh"
 #include "config/defaults.cuh"
 #include "rendering/raytrace.cuh"
 #include "rendering/device_scene.cuh"
@@ -18,7 +19,7 @@
 // Main raytracer kernel
 // =======================================================
 // Each thread shades exactly one pixel.
-__global__ void raytrace(uchar3 *buffer, int width, int height) {
+__global__ void raytrace(uchar3 *buffer, const int width, const int height) {
     // -------------------------
     // Thread → pixel coordinates
     // -------------------------

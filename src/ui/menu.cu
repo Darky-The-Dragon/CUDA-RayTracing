@@ -2,23 +2,46 @@
 #include <iostream>
 #include <string>
 #include <cctype>
-#include <cstdint>     // std::uint32_t
-#include <iterator>    // std::size
+#include <cstdint>
+#include <iterator>
 #include "config/config.cuh"
-#include "config/scene_config.cuh"  // scene bitmasks (SCENE_CORNELL, SCENE_SPHERES, ...)
+#include "config/scene_config.cuh"
 
 namespace {
     // --- Helpers ---------------------------------------------------------------
 
-    int readIntOrDefault(const std::string &prompt, int def) {
-        std::cout << prompt << " [" << def << "]: ";
+    // Unified number parsing: trims input; if empty or invalid -> returns default.
+    // Clamp is user-provided to keep ranges local to call sites.
+    template<class T, class ClampFn>
+    T readNumberOrDefault(const std::string &prompt, T def, ClampFn clamp) {
+        if (!prompt.empty()) {
+            std::cout << prompt << " [" << def << "]: ";
+        }
         std::string line;
         std::getline(std::cin, line);
+
+        // Trim whitespace
+        const auto l = line.find_first_not_of(" \t\r\n");
+        if (l == std::string::npos) return def;
+        const auto r = line.find_last_not_of(" \t\r\n");
+        line = line.substr(l, r - l + 1);
+
         if (line.empty()) return def;
-        try { return std::stoi(line); } catch (...) { return def; }
+
+        try {
+            if constexpr (std::is_floating_point_v<T>) {
+                T v = static_cast<T>(std::stod(line));
+                return clamp(v);
+            } else {
+                long long v = std::stoll(line);
+                return clamp(static_cast<T>(v));
+            }
+        } catch (...) {
+            return def;
+        }
     }
 
-    int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
+    int clampi(const int v, const int lo, const int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
     struct Res {
         int w, h;
@@ -38,7 +61,7 @@ namespace {
     constexpr int MIN_W = 64, MIN_H = 64;
     constexpr int MAX_W = 8192, MAX_H = 8192;
 
-    std::string sceneMaskToString(int mask) {
+    std::string sceneMaskToString(const int mask) {
         std::string s;
         const auto m = static_cast<std::uint32_t>(mask);
 
@@ -59,11 +82,11 @@ namespace {
         return s;
     }
 
-    const char *fxName(int fxFilter) {
+    const char *fxName(const int fxFilter) {
         return fxFilter == 0 ? "Gaussian" : "Bilateral";
     }
 
-    const char *exportName(int exportFormat) {
+    const char *exportName(const int exportFormat) {
         return exportFormat == 1 ? "PNG" : "PPM";
     }
 
@@ -87,18 +110,21 @@ namespace {
             std::getline(std::cin, sel);
             if (sel.empty()) return;
 
-            if (sel.size() == 1 && std::tolower(sel[0]) == 'w') {
-                std::cout << "Enter width (" << MIN_W << " .. " << MAX_W << "): ";
-                int w = readIntOrDefault("", rc.width);
-                rc.width = clampi(w, MIN_W, MAX_W);
-            } else if (sel.size() == 1 && std::tolower(sel[0]) == 'h') {
-                std::cout << "Enter height (" << MIN_H << " .. " << MAX_H << "): ";
-                int h = readIntOrDefault("", rc.height);
-                rc.height = clampi(h, MIN_H, MAX_H);
+            if (sel.size() == 1 && std::tolower(static_cast<unsigned char>(sel[0])) == 'w') {
+                const int w = readNumberOrDefault<int>(
+                    "Enter width", rc.width,
+                    [](const int v) { return clampi(v, MIN_W, MAX_W); }
+                );
+                rc.width = w;
+            } else if (sel.size() == 1 && std::tolower(static_cast<unsigned char>(sel[0])) == 'h') {
+                const int h = readNumberOrDefault<int>(
+                    "Enter height", rc.height,
+                    [](const int v) { return clampi(v, MIN_H, MAX_H); }
+                );
+                rc.height = h;
             } else {
                 try {
-                    int idx = std::stoi(sel);
-                    if (idx >= 1 && idx <= static_cast<int>(std::size(kCommonRes))) {
+                    if (const int idx = std::stoi(sel); idx >= 1 && idx <= static_cast<int>(std::size(kCommonRes))) {
                         rc.width = kCommonRes[static_cast<size_t>(idx - 1)].w;
                         rc.height = kCommonRes[static_cast<size_t>(idx - 1)].h;
                     }
@@ -148,7 +174,7 @@ namespace {
 
     // --- PostFX sub-submenus -----------------------------------------------------
 
-    static void submenuGaussianSettings(RuntimeConfig &rc) {
+    void submenuGaussianSettings(RuntimeConfig &rc) {
         for (;;) {
             std::cout << "\n== PostFX > Gaussian Settings ==\n";
             std::cout << " radius = " << rc.gaussRadius << "   [range: 1 .. 32]\n";
@@ -162,20 +188,20 @@ namespace {
             if (sel.empty()) return;
 
             if (sel == "1") {
-                rc.gaussRadius = clampi(readIntOrDefault("Gaussian radius", rc.gaussRadius), 1, 32);
+                rc.gaussRadius = readNumberOrDefault<int>(
+                    "Gaussian radius", rc.gaussRadius,
+                    [](const int v) { return clampi(v, 1, 32); }
+                );
             } else if (sel == "2") {
-                std::cout << "Gaussian sigma [" << rc.gaussSigma << "]: ";
-                std::string line;
-                std::getline(std::cin, line);
-                if (!line.empty()) {
-                    try { rc.gaussSigma = std::max(0.1f, std::stof(line)); } catch (...) {
-                    }
-                }
+                rc.gaussSigma = readNumberOrDefault<float>(
+                    "Gaussian sigma", rc.gaussSigma,
+                    [](const float v) { return v < 0.1f ? 0.1f : v; }
+                );
             }
         }
     }
 
-    static void submenuBilateralSettings(RuntimeConfig &rc) {
+    void submenuBilateralSettings(RuntimeConfig &rc) {
         for (;;) {
             std::cout << "\n== PostFX > Bilateral Settings ==\n";
             std::cout << " radius       = " << rc.bilateralRadius << "   [range: 1 .. 16]\n";
@@ -191,23 +217,20 @@ namespace {
             if (sel.empty()) return;
 
             if (sel == "1") {
-                rc.bilateralRadius = clampi(readIntOrDefault("Bilateral radius", rc.bilateralRadius), 1, 16);
+                rc.bilateralRadius = readNumberOrDefault<int>(
+                    "Bilateral radius", rc.bilateralRadius,
+                    [](const int v) { return clampi(v, 1, 16); }
+                );
             } else if (sel == "2") {
-                std::cout << "Bilateral sigmaSpatial [" << rc.bilateralSigmaSpatial << "]: ";
-                std::string line;
-                std::getline(std::cin, line);
-                if (!line.empty()) {
-                    try { rc.bilateralSigmaSpatial = std::max(0.1f, std::stof(line)); } catch (...) {
-                    }
-                }
+                rc.bilateralSigmaSpatial = readNumberOrDefault<float>(
+                    "Bilateral sigmaSpatial", rc.bilateralSigmaSpatial,
+                    [](const float v) { return v < 0.1f ? 0.1f : v; }
+                );
             } else if (sel == "3") {
-                std::cout << "Bilateral sigmaRange [" << rc.bilateralSigmaRange << "]: ";
-                std::string line;
-                std::getline(std::cin, line);
-                if (!line.empty()) {
-                    try { rc.bilateralSigmaRange = std::max(0.01f, std::stof(line)); } catch (...) {
-                    }
-                }
+                rc.bilateralSigmaRange = readNumberOrDefault<float>(
+                    "Bilateral sigmaRange", rc.bilateralSigmaRange,
+                    [](const float v) { return v < 0.01f ? 0.01f : v; }
+                );
             }
         }
     }
