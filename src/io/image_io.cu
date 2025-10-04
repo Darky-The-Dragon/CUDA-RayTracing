@@ -371,15 +371,7 @@ bool openPreview(const std::string &path) {
                 << "): " << shellCodeMeaning(code) << " | Path: " << abs << "\n";
         return false;
 #endif
-}
-
-std::cout
-<<
-"[PREVIEW] Opened: "
-<<
-abs
-<<
-"\n";
-return
-true;
+    }
+    std::cout << "[PREVIEW] Opened: " << abs << "\n";
+    return true;
 }

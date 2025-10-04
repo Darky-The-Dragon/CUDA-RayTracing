@@ -26,9 +26,7 @@
 struct Vec3;
 
 /// @brief Squared length (avoids sqrt).
-HD FINL
-
-float lengthSquared(const Vec3 &v);
+HD FINL float lengthSquared(const Vec3 &v);
 
 /// @brief Return a normalized copy (unit vector).
 /// @details Uses `rsqrtf` on device for speed; precise sqrt/div on host.
@@ -151,9 +149,7 @@ HD inline Vec3 operator*(const float scalar, const Vec3 &v) {
 /// ------------------------------------------------------------------------
 /// @brief Squared length (avoids sqrt).
 /// ------------------------------------------------------------------------
-HD FINL
-
-inline float lengthSquared(const Vec3 &v) {
+HD FINL inline float lengthSquared(const Vec3 &v) {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
@@ -163,9 +159,7 @@ inline float lengthSquared(const Vec3 &v) {
 /// @param v Input vector.
 /// @return Unit-length vector (0,0,0 if input length is zero).
 /// ------------------------------------------------------------------------
-HD FINL
-
-inline Vec3 normalized(const Vec3 &v) {
+HD FINL inline Vec3 normalized(const Vec3 &v) {
     const float l2 = lengthSquared(v);
     if (l2 <= 0.0f) return Vec3(0.0f);
 #ifdef __CUDA_ARCH__
