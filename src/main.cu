@@ -15,8 +15,10 @@
 
 namespace fs = std::filesystem;
 
+#include "core/camera.cuh"
 #include "core/macros.cuh"              // HD/FINL + CUDA_GUARD / CUDA_CHECK_LAUNCH_AND_SYNC
 #include "config/config.cuh"
+#include "config/defaults.cuh"
 #include "config/scene_config.cuh"
 #include "debug/debug_config.cuh"
 #include "rendering/device_scene.cuh"
@@ -161,8 +163,13 @@ int main() {
         CudaEvent start, stop;
         CUDA_GUARD(cudaEventRecord(start.ev));
 
-        raytrace<<<blocksPerGrid, threadsPerBlock>>>(d_buffer, WIDTH, HEIGHT);
-        CUDA_CHECK_LAUNCH_AND_SYNC(); // checks launch; in Debug also syncs
+        Camera cam;
+        cam.fov_deg = defaultCameraFovDeg();
+        const Vec3 bg = toFloat3(defaultBackgroundU8());
+        const Light light = defaultLight();
+
+        raytrace<<<blocksPerGrid, threadsPerBlock>>>(d_buffer, WIDTH, HEIGHT, cam, bg, light);
+        CUDA_CHECK_LAUNCH_AND_SYNC();
 
         CUDA_GUARD(cudaEventRecord(stop.ev));
         CUDA_GUARD(cudaEventSynchronize(stop.ev));

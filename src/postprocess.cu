@@ -66,7 +66,7 @@ namespace {
     /// ------------------------------------------------------------------------
     /// @brief Compute integer luma (0..255) using BT.601-like weights.
     /// ------------------------------------------------------------------------
-    inline int luma_u8_host(const uchar3 c) {
+     HD FINL int luma_u8(const uchar3 c) {
         return (kLumaR * c.x + kLumaG * c.y + kLumaB * c.z) >> kLumaShift;
     }
 } // namespace
@@ -186,7 +186,7 @@ namespace {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 const uchar3 center = src[static_cast<size_t>(y) * width + x];
-                const int L0 = luma_u8_host(center);
+                const int L0 = luma_u8(center);
 
                 float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f, sumW = 0.0f;
 
@@ -198,7 +198,7 @@ namespace {
                         const uchar3 s = src[static_cast<size_t>(yy) * width + xx];
 
                         const float ws = spatial[static_cast<size_t>(row + (dx + radius))];
-                        const int dL = std::abs(luma_u8_host(s) - L0);
+                        const int dL = std::abs(luma_u8(s) - L0);
                         const float wr = range[dL];
                         const float w = ws * wr;
 
@@ -354,23 +354,17 @@ static void uploadBilateralTables(int radius, const float sigmaSpatial, const fl
 
     // Range (0..255); parameter is normalized (0..1) or absolute (>=1)
     float range[kU8Range];
-    const float sigmaR = (sigmaRange <= 1.0f) ? (sigmaRange * 255.0f) : sigmaRange;
 
-    if (sigmaR > 0.0f) {
+    if (const float sigmaR = (sigmaRange <= 1.0f) ? (sigmaRange * 255.0f) : sigmaRange; sigmaR > 0.0f) {
         const float invTwoSigmaR2 = 1.0f / (2.0f * sigmaR * sigmaR);
         for (int d = 0; d < kU8Range; ++d) {
             const float df = static_cast<float>(d);
             range[d] = std::exp(-(df * df) * invTwoSigmaR2);
         }
     } else {
-        for (int d = 0; d < kU8Range; ++d) range[d] = 1.0f;
+        for (float & d : range) d = 1.0f;
     }
     CUDA_GUARD(cudaMemcpyToSymbol(cRange, range, sizeof(float) * kU8Range, 0, cudaMemcpyHostToDevice));
-}
-
-/// Compute integer luma (0..255) on device using BT.601-like weights.
-__device__ FINL int luma_u8_dev(const uchar3 c) {
-    return (kLumaR * c.x + kLumaG * c.y + kLumaB * c.z) >> kLumaShift;
 }
 
 /// Naive bilateral filter kernel (single pass, luma-guided).
@@ -384,7 +378,7 @@ __global__ void kBilateralNaive(const uchar3 * __restrict__ in,
 
     const int idxCenter = y * width + x;
     const uchar3 center = in[idxCenter];
-    const int L0 = luma_u8_dev(center);
+    const int L0 = luma_u8(center);
 
     float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f, sumW = 0.0f;
 
@@ -396,7 +390,7 @@ __global__ void kBilateralNaive(const uchar3 * __restrict__ in,
             const uchar3 s = in[yy * width + xx];
 
             const float ws = cSpatial[row + (dx + radius)];
-            const int dL = abs(luma_u8_dev(s) - L0);
+            const int dL = abs(luma_u8(s) - L0);
             const float wr = cRange[dL];
             const float w = ws * wr;
 

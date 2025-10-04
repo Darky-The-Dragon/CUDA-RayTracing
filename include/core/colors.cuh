@@ -14,6 +14,7 @@
 #define CORE_COLORS_CUH
 
 #include <cuda_runtime.h>
+#include "core/macros.cuh"
 
 // ----------------------------------------------------------------------------
 namespace Colors {
@@ -45,7 +46,7 @@ namespace Colors {
     /// @param b Blue channel (0–255).
     /// @return uchar3 RGB color.
     /// ------------------------------------------------------------------------
-    HD inline uchar3 RGB(unsigned char r, unsigned char g, unsigned char b) {
+    HD inline uchar3 RGB(const unsigned char r, const unsigned char g, const unsigned char b) {
         return make_uchar3(r, g, b);
     }
 
@@ -56,8 +57,8 @@ namespace Colors {
     /// @param b Blue channel (0.0–1.0).
     /// @return uchar3 RGB color.
     /// ------------------------------------------------------------------------
-    HD inline uchar3 FromF32(float r, float g, float b) {
-        auto clamp01 = [](float v) { return v < 0.f ? 0.f : (v > 1.f ? 1.f : v); };
+    HD inline uchar3 FromF32(const float r, const float g, const float b) {
+        auto clamp01 = [](const float v) { return v < 0.f ? 0.f : (v > 1.f ? 1.f : v); };
         return make_uchar3(
             static_cast<unsigned char>(255.0f * clamp01(r)),
             static_cast<unsigned char>(255.0f * clamp01(g)),
@@ -70,10 +71,10 @@ namespace Colors {
     /// @param hexRGB Packed RGB hex value.
     /// @return uchar3 RGB color.
     /// ------------------------------------------------------------------------
-    HD inline uchar3 FromHex(unsigned int hexRGB) {
-        unsigned char r = (hexRGB >> 16) & 0xFF;
-        unsigned char g = (hexRGB >> 8) & 0xFF;
-        unsigned char b = (hexRGB >> 0) & 0xFF;
+    HD inline uchar3 FromHex(const unsigned int hexRGB) {
+        const unsigned char r = (hexRGB >> 16) & 0xFF;
+        const unsigned char g = (hexRGB >> 8) & 0xFF;
+        const unsigned char b = (hexRGB >> 0) & 0xFF;
         return make_uchar3(r, g, b);
     }
 } // namespace Colors

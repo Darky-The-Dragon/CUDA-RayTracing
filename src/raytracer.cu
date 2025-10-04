@@ -19,7 +19,9 @@
 // Main raytracer kernel
 // =======================================================
 // Each thread shades exactly one pixel.
-__global__ void raytrace(uchar3 *buffer, const int width, const int height) {
+__global__ void raytrace(uchar3 * __restrict__ buffer, const int width, const int height, const Camera cam,
+                         const Vec3 bg,
+                         const Light light) {
     // -------------------------
     // Thread → pixel coordinates
     // -------------------------
@@ -34,11 +36,11 @@ __global__ void raytrace(uchar3 *buffer, const int width, const int height) {
     // -------------------------
     // Camera / background / light
     // -------------------------
-    Camera cam;
-    cam.fov_deg = defaultCameraFovDeg();
+    //Camera cam;
+    //cam.fov_deg = defaultCameraFovDeg();
     const Ray ray = generatePrimaryRay(cam, x, y, width, height);
-    const Vec3 bg = toFloat3(defaultBackgroundU8());
-    const Light light = defaultLight();
+    //const Vec3 bg = toFloat3(defaultBackgroundU8());
+    //const Light light = defaultLight();
 
 #if DEBUG_DRAW_LIGHT_SPHERE || DEBUG_DRAW_LIGHT_DIRECTION
     // -------------------------

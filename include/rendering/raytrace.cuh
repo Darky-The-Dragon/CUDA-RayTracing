@@ -25,12 +25,19 @@
 ///               (RGB, uchar3 per pixel, row-major order).
 /// @param width  Output image width in pixels.
 /// @param height Output image height in pixels.
+/// @param cam    Camera parameters used to generate primary rays (by value).
+/// @param bg     Background color (linear RGB) used when no geometry is hit.
+/// @param light  Scene light parameters used by the shader (by value).
 ///
 /// @note Each thread computes exactly one pixel color. The kernel must be
 ///       launched with a grid/block configuration that covers the entire
 ///       [0, width) x [0, height) pixel domain.
 /// ----------------------------------------------------------------------------
 
-__global__ void raytrace(uchar3 *buffer, int width, int height);
+__global__ void raytrace(uchar3* __restrict__ buffer,
+                         int width, int height,
+                         Camera cam,
+                         Vec3 bg,
+                         Light light);
 
 #endif // RENDERING_RAYTRACE_CUH
