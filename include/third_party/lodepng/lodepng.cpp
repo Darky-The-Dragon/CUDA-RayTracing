@@ -74,6 +74,7 @@ from here.*/
 static void *lodepng_malloc(size_t size) {
 
 
+
 #ifdef LODEPNG_MAX_ALLOC
 if (size> LODEPNG_MAX_ALLOC) return 0;
 #endif
@@ -82,6 +83,7 @@ return malloc (size);
 
 /* NOTE: when realloc returns NULL, it leaves the original memory untouched */
 static void *lodepng_realloc(void *ptr, size_t new_size) {
+
 
 
 #ifdef LODEPNG_MAX_ALLOC
@@ -5722,6 +5724,7 @@ lodepng_decompress_settings_init (&settings->zlibsettings);
 void lodepng_state_init(LodePNGState *state) {
 
 
+
 #ifdef LODEPNG_COMPILE_DECODER
 lodepng_decoder_settings_init (&state->decoder);
 #endif /*LODEPNG_COMPILE_DECODER*/
@@ -7165,6 +7168,7 @@ const char *lodepng_error_text(unsigned code) {
 
 #ifdef LODEPNG_COMPILE_CPP
 namespace lodepng {
+
 
 
 #ifdef LODEPNG_COMPILE_DISK

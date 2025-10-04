@@ -51,7 +51,9 @@ constexpr float kArrowBodyLength = 0.80f;
 /// @return True if enabled for the current compilation target.
 /// @note On device, requires DEBUG_DRAW_LIGHT_SPHERE==1 and d_dbg.drawLightSphere!=0.
 /// ----------------------------------------------------------------------------
-HD FINL bool dbgLightSphere() {
+HD FINL
+
+bool dbgLightSphere() {
 #if DEBUG_DRAW_LIGHT_SPHERE
 #  ifdef __CUDA_ARCH__
     return d_dbg.drawLightSphere != 0;
@@ -68,7 +70,9 @@ HD FINL bool dbgLightSphere() {
 /// @return True if enabled for the current compilation target.
 /// @note On device, requires DEBUG_DRAW_LIGHT_DIRECTION==1 and d_dbg.drawLightDir!=0.
 /// ----------------------------------------------------------------------------
-HD FINL bool dbgLightDir() {
+HD FINL
+
+bool dbgLightDir() {
 #if DEBUG_DRAW_LIGHT_DIRECTION
 #  ifdef __CUDA_ARCH__
     return d_dbg.drawLightDir != 0;
@@ -85,7 +89,9 @@ HD FINL bool dbgLightDir() {
 /// @return True if enabled for the current compilation target.
 /// @note On device, requires DEBUG_DRAW_NORMALS==1 and d_dbg.drawNormals!=0.
 /// ----------------------------------------------------------------------------
-HD FINL bool dbgNormals() {
+HD FINL
+
+bool dbgNormals() {
 #if DEBUG_DRAW_NORMALS
 #  ifdef __CUDA_ARCH__
     return d_dbg.drawNormals != 0;
@@ -110,7 +116,9 @@ HD FINL bool dbgNormals() {
 /// @note Internally delegates to Sphere::intersectBoth.
 ///       Reports true only if at least one intersection is in front of the ray origin.
 /// ----------------------------------------------------------------------------
-HD FINL bool intersectsSphere(const Ray &ray, const Vec3 &center, const float radius) {
+HD FINL
+
+bool intersectsSphere(const Ray &ray, const Vec3 &center, const float radius) {
     Sphere s;
     s.center = center;
     s.radius = radius;
@@ -130,7 +138,9 @@ HD FINL bool intersectsSphere(const Ray &ray, const Vec3 &center, const float ra
 /// @return True if the gizmo was hit and @p outColor was set; false otherwise.
 /// @note Enabled only if @c dbgLightSphere() is true at call-site.
 /// ----------------------------------------------------------------------------
-HD FINL bool renderLightDebug(const Ray &ray, const Light &light, uchar3 &outColor) {
+HD FINL
+
+bool renderLightDebug(const Ray &ray, const Light &light, uchar3 &outColor) {
 #if DEBUG_DRAW_LIGHT_SPHERE
     if (!dbgLightSphere()) return false;
     if (const Vec3 lightPos = light.position; intersectsSphere(ray, lightPos, kLightSphereRadius)) {
@@ -139,7 +149,9 @@ HD FINL bool renderLightDebug(const Ray &ray, const Light &light, uchar3 &outCol
     }
     return false;
 #else
-    (void) ray; (void) light; (void) outColor;
+    (void) ray;
+    (void) light;
+    (void) outColor;
     return false;
 #endif
 }
@@ -155,7 +167,9 @@ HD FINL bool renderLightDebug(const Ray &ray, const Light &light, uchar3 &outCol
 ///  - Skips @c POINT lights. For @c DIRECTIONAL/@c SPOT, a small proxy sphere
 ///    is placed halfway along a short arrow aligned with the light direction.
 /// ----------------------------------------------------------------------------
-HD FINL bool renderLightDirectionRay(const Ray &ray, const Light &light, uchar3 &outColor) {
+HD FINL
+
+bool renderLightDirectionRay(const Ray &ray, const Light &light, uchar3 &outColor) {
 #if DEBUG_DRAW_LIGHT_DIRECTION
     if (!dbgLightDir()) return false;
     if (light.type == POINT) return false;
@@ -169,7 +183,9 @@ HD FINL bool renderLightDirectionRay(const Ray &ray, const Light &light, uchar3 
     }
     return false;
 #else
-    (void) ray; (void) light; (void) outColor;
+    (void) ray;
+    (void) light;
+    (void) outColor;
     return false;
 #endif
 }

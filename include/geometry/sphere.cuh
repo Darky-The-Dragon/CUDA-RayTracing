@@ -8,7 +8,9 @@
 #include "core/ray.cuh"
 
 // Canonical quadratic solver: |O + tD - C|^2 = r^2
-HD FINL bool sphereIntersectRoots(
+HD FINL
+
+bool sphereIntersectRoots(
     const Vec3 &O, const Vec3 &D,
     const Vec3 &C, float r,
     float &t0, float &t1) {
@@ -39,15 +41,39 @@ struct Sphere {
     float radius;
     Material material;
 
-    HD FINL Sphere() : center(0.0f), radius(1.0f), material() {
+    HD FINL Sphere (
+    
+    )
+    :
+    center (
+    
+    0.0f
+    )
+    ,
+    radius (
+    
+    1.0f
+    )
+    ,
+    material() {
     }
 
-    HD FINL Sphere(const Vec3 &c, float r, const Material &m)
-        : center(c), radius(r), material(m) {
+    HD FINL Sphere (
+    
+    const Vec3 &c,
+    
+    float r,
+    
+    const Material &m
+    )
+    :
+    center (c), radius(r), material(m) {
     }
 
     // Nearest valid hit (t >= kHitMinT)
-    HD FINL bool intersect(const Vec3 &ro, const Vec3 &rd, float &tHit) const {
+    HD FINL
+
+    bool intersect(const Vec3 &ro, const Vec3 &rd, float &tHit) const {
         float t0, t1;
         if (!sphereIntersectRoots(ro, rd, center, radius, t0, t1)) return false;
         if (t0 >= num::kHitMinT()) {
@@ -62,12 +88,16 @@ struct Sphere {
     }
 
     // Both roots (entry/exit), regardless of kHitMinT policy
-    HD FINL bool intersectBoth(const Vec3 &ro, const Vec3 &rd, float &t0, float &t1) const {
+    HD FINL
+
+    bool intersectBoth(const Vec3 &ro, const Vec3 &rd, float &t0, float &t1) const {
         return sphereIntersectRoots(ro, rd, center, radius, t0, t1);
     }
 
     // Any-hit (useful for shadows/gizmos)
-    HD FINL bool occludes(const Vec3 &ro, const Vec3 &rd) const {
+    HD FINL
+
+    bool occludes(const Vec3 &ro, const Vec3 &rd) const {
         float t0, t1;
         if (!sphereIntersectRoots(ro, rd, center, radius, t0, t1)) return false;
         return (t1 >= num::kHitMinT());

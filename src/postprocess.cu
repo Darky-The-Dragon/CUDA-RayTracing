@@ -66,7 +66,7 @@ namespace {
     /// ------------------------------------------------------------------------
     /// @brief Compute integer luma (0..255) using BT.601-like weights.
     /// ------------------------------------------------------------------------
-     HD FINL int luma_u8(const uchar3 c) {
+    HD FINL int luma_u8(const uchar3 c) {
         return (kLumaR * c.x + kLumaG * c.y + kLumaB * c.z) >> kLumaShift;
     }
 } // namespace
@@ -179,7 +179,7 @@ namespace {
                 range[d] = std::exp(-(df * df) * invTwoSigmaR2);
             }
         } else {
-            for (float & d : range) d = 1.0f;
+            for (float &d: range) d = 1.0f;
         }
 
         // Filter each pixel
@@ -362,7 +362,7 @@ static void uploadBilateralTables(int radius, const float sigmaSpatial, const fl
             range[d] = std::exp(-(df * df) * invTwoSigmaR2);
         }
     } else {
-        for (float & d : range) d = 1.0f;
+        for (float &d: range) d = 1.0f;
     }
     CUDA_GUARD(cudaMemcpyToSymbol(cRange, range, sizeof(float) * kU8Range, 0, cudaMemcpyHostToDevice));
 }
