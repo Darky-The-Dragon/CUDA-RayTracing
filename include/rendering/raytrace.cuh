@@ -17,6 +17,9 @@
 #define RENDERING_RAYTRACE_CUH
 
 #include <cuda_runtime.h>
+#include "core/camera.cuh"
+#include "core/vec3.cuh"
+#include "rendering/light.cuh"
 
 /// ----------------------------------------------------------------------------
 /// @brief GPU raytracing kernel: computes one pixel color per thread.
@@ -34,10 +37,6 @@
 ///       [0, width) x [0, height) pixel domain.
 /// ----------------------------------------------------------------------------
 
-__global__ void raytrace(uchar3* __restrict__ buffer,
-                         int width, int height,
-                         Camera cam,
-                         Vec3 bg,
-                         Light light);
+__global__ void raytrace(uchar3 * __restrict__ buffer, int width, int height, Camera cam, Vec3 bg, Light light);
 
 #endif // RENDERING_RAYTRACE_CUH

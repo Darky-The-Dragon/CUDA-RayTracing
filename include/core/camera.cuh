@@ -65,7 +65,8 @@ HD inline Ray generatePrimaryRay(
     const float fov_rad = num::deg2rad(cam.fov_deg);
     const float half_tan = tanf(0.5f * fov_rad);
 
-    // NDC in [-1, 1]
+    // NDC in [-1,1], pixel centers (x+0.5,y+0.5); bottom-left origin.
+    // Flip the sign of ndcY here to use top-left origin in the raster.
     float ndcX = ((static_cast<float>(x) + 0.5f) / w) * 2.0f - 1.0f;
     float ndcY = ((static_cast<float>(y) + 0.5f) / h) * 2.0f - 1.0f;
 

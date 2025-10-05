@@ -4,7 +4,6 @@
 #include "core/macros.cuh"
 #include <cmath>
 #include <cfloat>
-#include <cstdint>
 
 namespace num {
   // ===== Tolerances & distances =====
@@ -26,6 +25,10 @@ namespace num {
   HD FINL constexpr float kInv255() { return 1.0f / 255.0f; }
 
   HD FINL float clamp01(const float x) { return fminf(1.0f, fmaxf(0.0f, x)); }
+
+  HD FINL constexpr int clampi(const int v, const int lo, const int hi) {
+    return (v < lo) ? lo : (v > hi ? hi : v);
+  }
 
   // Transitional aliases (delete once all call sites are updated)
   HD FINL constexpr float kFloatEps() { return kEps(); }

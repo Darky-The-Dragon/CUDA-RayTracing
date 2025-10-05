@@ -17,6 +17,7 @@
 // ============================================================================
 
 #include "core/macros.cuh"
+#include "core/numerics.cuh"
 #include "rendering/postprocess.cuh"
 #include <chrono>
 #include <vector>
@@ -45,13 +46,6 @@ namespace {
     constexpr int kSpatialMaxRadius = 32; // (2R+1) <= 65
 
     /// ------------------------------------------------------------------------
-    /// @brief Clamp an integer to [lo, hi].
-    /// ------------------------------------------------------------------------
-    int clampInt(const int v, const int lo, const int hi) {
-        return (v < lo) ? lo : (v > hi ? hi : v);
-    }
-
-    /// ------------------------------------------------------------------------
     /// @brief Pack three floats into an 8-bit RGB pixel with rounding & clamp.
     /// @return uchar3 with values clamped to [0, 255] and rounded.
     /// ------------------------------------------------------------------------
@@ -66,7 +60,7 @@ namespace {
     /// ------------------------------------------------------------------------
     /// @brief Compute integer luma (0..255) using BT.601-like weights.
     /// ------------------------------------------------------------------------
-     HD FINL int luma_u8(const uchar3 c) {
+    HD FINL int luma_u8(const uchar3 c) {
         return (kLumaR * c.x + kLumaG * c.y + kLumaB * c.z) >> kLumaShift;
     }
 } // namespace
@@ -116,10 +110,10 @@ namespace {
             for (int x = 0; x < width; ++x) {
                 float r = 0.0f, g = 0.0f, b = 0.0f;
                 for (int k = 0; k < kernelSize; ++k) {
-                    const int xx = clampInt(x + (k - radius), 0, width - 1);
+                    const int xx = num::clampi(x + (k - radius), 0, width - 1);
                     const uchar3 px = image[row + xx];
                     const float w = kernel[static_cast<size_t>(k)];
-                    r += w * static_cast<float>(px.x);
+                    r += w * static_cast<float>(x);
                     g += w * static_cast<float>(px.y);
                     b += w * static_cast<float>(px.z);
                 }
@@ -133,7 +127,7 @@ namespace {
             for (int x = 0; x < width; ++x) {
                 float r = 0.0f, g = 0.0f, b = 0.0f;
                 for (int k = 0; k < kernelSize; ++k) {
-                    const int yy = clampInt(y + (k - radius), 0, height - 1);
+                    const int yy = num::clampi(y + (k - radius), 0, height - 1);
                     const uchar3 px = scratch[static_cast<size_t>(yy) * width + x];
                     const float w = kernel[static_cast<size_t>(k)];
                     r += w * static_cast<float>(px.x);
@@ -179,7 +173,7 @@ namespace {
                 range[d] = std::exp(-(df * df) * invTwoSigmaR2);
             }
         } else {
-            for (float & d : range) d = 1.0f;
+            for (float &d: range) d = 1.0f;
         }
 
         // Filter each pixel
@@ -191,10 +185,10 @@ namespace {
                 float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f, sumW = 0.0f;
 
                 for (int dy = -radius; dy <= radius; ++dy) {
-                    const int yy = clampInt(y + dy, 0, height - 1);
+                    const int yy = num::clampi(y + dy, 0, height - 1);
                     const int row = (dy + radius) * ksize;
                     for (int dx = -radius; dx <= radius; ++dx) {
-                        const int xx = clampInt(x + dx, 0, width - 1);
+                        const int xx = num::clampi(x + dx, 0, width - 1);
                         const uchar3 s = src[static_cast<size_t>(yy) * width + xx];
 
                         const float ws = spatial[static_cast<size_t>(row + (dx + radius))];
@@ -272,22 +266,16 @@ static void uploadGaussianKernel(const int radius, const float sigma) {
         0, cudaMemcpyHostToDevice));
 }
 
-/// Device integer clamp helper.
-__device__ FINL int clampInt_d(const int v, const int lo, const int hi) {
-    return (v < lo) ? lo : (v > hi ? hi : v);
-}
-
 /// Horizontal 1D Gaussian pass (device).
-__global__ void kGaussianH(const uchar3 * __restrict__ in,
-                           uchar3 * __restrict__ out,
-                           const int width, const int height, const int radius) {
+__global__ void kGaussianH(const uchar3 * __restrict__ in, uchar3 * __restrict__ out, const int width, const int height,
+                           const int radius) {
     const int x = static_cast<int>(blockIdx.x) * static_cast<int>(blockDim.x) + static_cast<int>(threadIdx.x);
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
     if (x >= width || y >= height) return;
 
     float r = 0.0f, g = 0.0f, b = 0.0f;
     for (int k = -radius; k <= radius; ++k) {
-        const int xx = clampInt_d(x + k, 0, width - 1);
+        const int xx = num::clampi(x + k, 0, width - 1);
         const uchar3 px = in[y * width + xx];
         const float w = cGaussian[k + radius];
         r += w * static_cast<float>(px.x);
@@ -302,16 +290,15 @@ __global__ void kGaussianH(const uchar3 * __restrict__ in,
 }
 
 /// Vertical 1D Gaussian pass (device).
-__global__ void kGaussianV(const uchar3 * __restrict__ in,
-                           uchar3 * __restrict__ out,
-                           const int width, const int height, const int radius) {
+__global__ void kGaussianV(const uchar3 * __restrict__ in, uchar3 * __restrict__ out, const int width, const int height,
+                           const int radius) {
     const int x = static_cast<int>(blockIdx.x) * static_cast<int>(blockDim.x) + static_cast<int>(threadIdx.x);
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
     if (x >= width || y >= height) return;
 
     float r = 0.0f, g = 0.0f, b = 0.0f;
     for (int k = -radius; k <= radius; ++k) {
-        const int yy = clampInt_d(y + k, 0, height - 1);
+        const int yy = num::clampi(y + k, 0, height - 1);
         const uchar3 px = in[yy * width + x];
         const float w = cGaussian[k + radius];
         r += w * static_cast<float>(px.x);
@@ -332,7 +319,7 @@ static int gSpatialRadius = 0;
 static int gSpatialSize = 1;
 
 /// Upload bilateral spatial table and range LUT to constant memory.
-static void uploadBilateralTables(int radius, const float sigmaSpatial, const float sigmaRange) {
+static void uploadBilateralTables(const int radius, const float sigmaSpatial, const float sigmaRange) {
     gSpatialRadius = (radius < 0) ? 0 : (radius > kSpatialMaxRadius ? kSpatialMaxRadius : radius);
     gSpatialSize = 2 * gSpatialRadius + 1;
 
@@ -362,16 +349,14 @@ static void uploadBilateralTables(int radius, const float sigmaSpatial, const fl
             range[d] = std::exp(-(df * df) * invTwoSigmaR2);
         }
     } else {
-        for (float & d : range) d = 1.0f;
+        for (float &d: range) d = 1.0f;
     }
     CUDA_GUARD(cudaMemcpyToSymbol(cRange, range, sizeof(float) * kU8Range, 0, cudaMemcpyHostToDevice));
 }
 
 /// Naive bilateral filter kernel (single pass, luma-guided).
-__global__ void kBilateralNaive(const uchar3 * __restrict__ in,
-                                uchar3 * __restrict__ out,
-                                const int width, const int height,
-                                const int radius, const int ksize) {
+__global__ void kBilateralNaive(const uchar3 * __restrict__ in, uchar3 * __restrict__ out, const int width,
+                                const int height, const int radius, const int ksize) {
     const int x = static_cast<int>(blockIdx.x) * static_cast<int>(blockDim.x) + static_cast<int>(threadIdx.x);
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
     if (x >= width || y >= height) return;
@@ -383,10 +368,10 @@ __global__ void kBilateralNaive(const uchar3 * __restrict__ in,
     float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f, sumW = 0.0f;
 
     for (int dy = -radius; dy <= radius; ++dy) {
-        const int yy = clampInt_d(y + dy, 0, height - 1);
+        const int yy = num::clampi(y + dy, 0, height - 1);
         const int row = (dy + radius) * ksize;
         for (int dx = -radius; dx <= radius; ++dx) {
-            const int xx = clampInt_d(x + dx, 0, width - 1);
+            const int xx = num::clampi(x + dx, 0, width - 1);
             const uchar3 s = in[yy * width + xx];
 
             const float ws = cSpatial[row + (dx + radius)];
@@ -412,8 +397,8 @@ __global__ void kBilateralNaive(const uchar3 * __restrict__ in,
     }
 }
 
-void PostFX::applyGPU(uchar3 *d_img, const int width, const int height,
-                      const Params &p, Timings *t, cudaStream_t stream) {
+void PostFX::applyGPU(uchar3 *d_img, const int width, const int height, const Params &p, Timings *t,
+                      cudaStream_t stream) {
     if (p.filter == Filter::None) {
         if (t) t->ms = 0.0f;
         return;
