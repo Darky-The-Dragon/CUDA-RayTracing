@@ -6,12 +6,12 @@
 
 #include <cuda_runtime.h>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
-#include <cstdint>
 
 namespace fs = std::filesystem;
 
@@ -21,6 +21,7 @@ namespace fs = std::filesystem;
 #include "config/defaults.cuh"
 #include "config/scene_config.cuh"
 #include "debug/debug_config.cuh"
+#include "io/image_io.cuh"
 #include "rendering/device_scene.cuh"
 #include "rendering/postfx_setup.cuh"
 #include "rendering/raytrace.cuh"
@@ -28,9 +29,7 @@ namespace fs = std::filesystem;
 #include "rendering/postprocess.cuh"
 #include "scenes/world_build.cuh"
 #include "ui/menu.cuh"
-
-// NEW: centralized image I/O (PPM/PNG), watermark, preview
-#include "io/image_io.cuh"
+#include "utils/perf_logging.cuh"
 
 // ============================================================================
 // Device-side constants
@@ -56,9 +55,7 @@ struct CudaEvent {
     cudaEvent_t ev{};
     CudaEvent() { CUDA_GUARD(cudaEventCreate(&ev)); }
     ~CudaEvent() { CUDA_GUARD(cudaEventDestroy(ev)); }
-
     CudaEvent(const CudaEvent &) = delete;
-
     CudaEvent &operator=(const CudaEvent &) = delete;
 };
 
@@ -132,13 +129,13 @@ int main() {
         (HEIGHT + threadsPerBlock.y - 1) / threadsPerBlock.y);
 
     std::cout << "[GPU DEBUG] Threads per block: "
-            << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
+              << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
     std::cout << "[GPU DEBUG] Total blocks: "
-            << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
+              << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
 
     const uint64_t totalThreads =
-            static_cast<uint64_t>(blocksPerGrid.x) * threadsPerBlock.x *
-            static_cast<uint64_t>(blocksPerGrid.y) * threadsPerBlock.y;
+        static_cast<uint64_t>(blocksPerGrid.x) * threadsPerBlock.x *
+        static_cast<uint64_t>(blocksPerGrid.y) * threadsPerBlock.y;
     std::cout << "[GPU DEBUG] Total threads: " << totalThreads << "\n";
 
     // Device stack (only needed if recursion is used on device)
@@ -158,6 +155,12 @@ int main() {
     // Upload runtime debug toggles
     uploadDebugToDevice(rc);
 
+    // ---- Timing buckets we’ll summarize later
+    double gpuPrimaryMs = 0.0;
+    double gpuFxMs      = 0.0;
+    double cpuPrimaryMs = 0.0;
+    double cpuFxMs      = 0.0;
+
     // Launch & time (scope ensures events are destroyed before optional reset)
     {
         CudaEvent start, stop;
@@ -176,7 +179,8 @@ int main() {
 
         float gpu_ms = 0.0f;
         CUDA_GUARD(cudaEventElapsedTime(&gpu_ms, start.ev, stop.ev));
-        std::cout << "[TIMING] GPU raytracing took " << gpu_ms << " ms\n";
+        gpuPrimaryMs = static_cast<double>(gpu_ms);
+        std::cout << "[TIMING] GPU raytracing took " << gpuPrimaryMs << " ms\n";
     }
 
     // Copy GPU result to host & save (RAW)
@@ -189,7 +193,8 @@ int main() {
     if (fx.filter != PostFX::Filter::None) {
         PostFX::Timings fxT{};
         PostFX::applyGPU(d_buffer, WIDTH, HEIGHT, fx, &fxT);
-        std::cout << "[TIMING] GPU post-FX took " << fxT.ms << " ms\n";
+        gpuFxMs = static_cast<double>(fxT.ms);
+        std::cout << "[TIMING] GPU post-FX took " << gpuFxMs << " ms\n";
 
         std::vector<uchar3> h_gpu_pp(PIXELS);
         CUDA_GUARD(cudaMemcpy(h_gpu_pp.data(), d_buffer, IMAGE_BYTES, cudaMemcpyDeviceToHost));
@@ -204,14 +209,14 @@ int main() {
     // CPU follows the same scene & debug toggles chosen in the menu
     DebugConfigHost dbgHost{};
     dbgHost.drawLightSphere = rc.dbgDrawLightSphere;
-    dbgHost.drawLightDir = rc.dbgDrawLightDir;
-    dbgHost.drawNormals = rc.dbgDrawNormals;
+    dbgHost.drawLightDir    = rc.dbgDrawLightDir;
+    dbgHost.drawNormals     = rc.dbgDrawNormals;
 
     const auto cpuStart = std::chrono::high_resolution_clock::now();
     cpu_raytrace(h_cpu.data(), WIDTH, HEIGHT, rc.sceneMask, dbgHost);
     const auto cpuEnd = std::chrono::high_resolution_clock::now();
-    const double cpuMs = std::chrono::duration<double, std::milli>(cpuEnd - cpuStart).count();
-    std::cout << "[TIMING] CPU raytracing took " << cpuMs << " ms\n";
+    cpuPrimaryMs = std::chrono::duration<double, std::milli>(cpuEnd - cpuStart).count();
+    std::cout << "[TIMING] CPU raytracing took " << cpuPrimaryMs << " ms\n";
 
     // CPU RAW
     save_with_optional_wm(make_path("output_cpu"), h_cpu.data(),
@@ -222,9 +227,68 @@ int main() {
         std::vector<uchar3> h_cpu_pp = h_cpu; // keep raw intact
         PostFX::Timings fxT{};
         PostFX::applyCPU(h_cpu_pp.data(), WIDTH, HEIGHT, fx, &fxT);
-        std::cout << "[TIMING] CPU post-FX took " << fxT.ms << " ms\n";
+        cpuFxMs = static_cast<double>(fxT.ms);
+        std::cout << "[TIMING] CPU post-FX took " << cpuFxMs << " ms\n";
         save_with_optional_wm(make_path("output_cpu_pp"), h_cpu_pp.data(),
                               std::string("CPU | PostFX:") + kPpFxLabel);
+    }
+
+    // ---------------- Run Summary + CSV ----------------
+    {
+        // Scene label (e.g., "Cornell | Spheres" or "None")
+        auto scene_label = [](int mask) -> std::string {
+            std::string s;
+            const auto m = static_cast<std::uint32_t>(mask);
+            auto append = [&](const char* name){ if (!s.empty()) s += " | "; s += name; };
+            if (m & SCENE_CORNELL) append("Cornell");
+            if (m & SCENE_SPHERES) append("Spheres");
+            if (m & SCENE_CUBES)   append("Cubes");
+            if (s.empty()) s = "None";
+            return s;
+        };
+
+        // PostFX settings label: OFF / DEFAULT / explicit params
+        std::string fxSettings;
+        if (fx.filter == PostFX::Filter::None) {
+            fxSettings = "OFF";
+        } else {
+            const bool isDefault =
+                (fx.filter == PostFX::Filter::Gaussian  && rc.gaussRadius == 2  && rc.gaussSigma == 1.2f) ||
+                (fx.filter == PostFX::Filter::Bilateral && rc.bilateralRadius == 3 &&
+                 rc.bilateralSigmaSpatial == 2.0f && rc.bilateralSigmaRange == 0.15f);
+
+            if (isDefault) {
+                fxSettings = "DEFAULT";
+            } else if (fx.filter == PostFX::Filter::Gaussian) {
+                char buf[96];
+                std::snprintf(buf, sizeof(buf), "Gaussian(r=%d,sigma=%.3f)", rc.gaussRadius, rc.gaussSigma);
+                fxSettings = buf;
+            } else { // Bilateral
+                char buf[128];
+                std::snprintf(buf, sizeof(buf), "Bilateral(r=%d,sigmaS=%.3f,sigmaR=%.3f)",
+                              rc.bilateralRadius, rc.bilateralSigmaSpatial, rc.bilateralSigmaRange);
+                fxSettings = buf;
+            }
+        }
+
+        RunStats rs{};
+        rs.width           = WIDTH;
+        rs.height          = HEIGHT;
+        rs.pixels          = PIXELS;
+        rs.imageBytes      = IMAGE_BYTES;
+        rs.grid            = blocksPerGrid;
+        rs.block           = threadsPerBlock;
+        rs.filter          = fx.filter;
+        rs.sceneLabel      = scene_label(rc.sceneMask);
+        rs.fxSettingsLabel = fxSettings;
+        rs.gpuPrimaryMs    = gpuPrimaryMs;
+        rs.gpuFxMs         = gpuFxMs;
+        rs.cpuPrimaryMs    = cpuPrimaryMs;
+        rs.cpuFxMs         = cpuFxMs;
+
+        const GpuInfo gi = queryGpuInfo();
+        printRunSummary(gi, rs);
+        appendTimingsCSV(outDir, gi, rs);
     }
 
     // ---------------- Cleanup ----------------

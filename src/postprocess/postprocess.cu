@@ -20,8 +20,9 @@
 #include "core/numerics.cuh"
 #include "rendering/postprocess.cuh"
 #include <chrono>
-#include <vector>
 #include <cmath>
+#include <utility>
+#include <vector>
 
 // ============================================================================
 // Shared helpers & constants (TU-local)
@@ -113,7 +114,7 @@ namespace {
                     const int xx = num::clampi(x + (k - radius), 0, width - 1);
                     const uchar3 px = image[row + xx];
                     const float w = kernel[static_cast<size_t>(k)];
-                    r += w * static_cast<float>(x);
+                    r += w * static_cast<float>(px.x);
                     g += w * static_cast<float>(px.y);
                     b += w * static_cast<float>(px.z);
                 }
@@ -397,7 +398,7 @@ __global__ void kBilateralNaive(const uchar3 * __restrict__ in, uchar3 * __restr
     }
 }
 
-void PostFX::applyGPU(uchar3 *d_img, const int width, const int height, const Params &p, Timings *t,
+void PostFX::applyGPU(uchar3 *&d_img, const int width, const int height, const Params &p, Timings *t,
                       cudaStream_t stream) {
     if (p.filter == Filter::None) {
         if (t) t->ms = 0.0f;
@@ -444,9 +445,7 @@ void PostFX::applyGPU(uchar3 *d_img, const int width, const int height, const Pa
         kBilateralNaive<<<grid, block, 0, stream>>>(d_img, d_tmp, width, height, gSpatialRadius, gSpatialSize);
         CUDA_GUARD(cudaGetLastError());
 
-        CUDA_GUARD(cudaMemcpyAsync(d_img, d_tmp,
-            static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar3),
-            cudaMemcpyDeviceToDevice, stream));
+        std::swap(d_img, d_tmp);
 
         CUDA_GUARD(cudaFreeAsync(d_tmp, stream));
     }

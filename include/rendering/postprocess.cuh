@@ -79,14 +79,14 @@ namespace PostFX {
     /// @brief Apply post-processing filter on the GPU.
     ///
     /// @param d_img  Pointer to device image buffer (uchar3 RGB).
-    /// @param w      Image width in pixels.
-    /// @param h      Image height in pixels.
+    /// @param width      Image width in pixels.
+    /// @param height      Image height in pixels.
     /// @param p      Post-processing parameters (filter type + settings).
     /// @param t      Optional pointer to timing results (nullptr = disabled).
     /// @param stream CUDA stream to enqueue operations into (default = 0).
     /// ----------------------------------------------------------------------------
-    void applyGPU(uchar3 *d_img, int w, int h, const Params &p, Timings *t = nullptr,
-                  cudaStream_t stream = nullptr);
+    void applyGPU(uchar3 *&d_img, int width, int height, const Params &p, Timings *t = nullptr,
+                         cudaStream_t stream = nullptr);
 }
 
 #endif //RENDERING_POSTPROCESS_CUH

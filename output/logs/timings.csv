@@ -1,0 +1,2 @@
+Datetime,Gpu,CC,SMS,Resolution,Scene,Filter,PostFX Settings,GPU Primary (ms),GPU PostFX (ms),GPU Total (ms),CPU Primary (ms),CPU PostFX (ms),CPU Total (ms),MPx,GPU MPx (s),CPU MPx (s),PostFX (bytes),GPU PostFX (GB/s),GPU Grid X,GPU Grid Y,GPU Block X,GPU Block Y
+2025-10-08 20:26:53,"NVIDIA GeForce RTX 4090",8.9,128,1024x1024,"Cornell | Spheres",Bilateral,"DEFAULT",1.095,4.060,5.155,4449.450,726.785,5176.236,1.05,957.79,0.24,6291456,1.550,64,64,16,16

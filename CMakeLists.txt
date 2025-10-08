@@ -19,13 +19,14 @@ add_compile_definitions(PROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 # Sources / Headers
 # --------------------------------
 set(SOURCES
-        src/cpu_raytracer.cu
+        src/raytracer/cpu_raytracer.cu
         src/main.cu
-        src/postprocess.cu
-        src/raytracer.cu
+        src/postprocess/postprocess.cu
+        src/raytracer/raytracer.cu
         src/ui/menu.cu
-        src/device_scene.cu
+        src/postprocess/device_scene.cu
         src/io/image_io.cu
+        src/log/perf_logging.cu
 )
 
 list(APPEND SOURCES
@@ -38,7 +39,9 @@ set(HEADERS
         include/config/scene_config.cuh
         include/core/camera.cuh
         include/core/colors.cuh
+        include/core/macros.cuh
         include/core/material.cuh
+        include/core/numerics.cuh
         include/core/ray.cuh
         include/core/vec3.cuh
         include/debug/debug_config.cuh
@@ -46,21 +49,20 @@ set(HEADERS
         include/geometry/plane.cuh
         include/geometry/quad.cuh
         include/geometry/sphere.cuh
+        include/io/image_io.cuh
         include/rendering/cpu_raytracer.cuh
+        include/rendering/device_scene.cuh
         include/rendering/light.cuh
+        include/rendering/postfx_setup.cuh
         include/rendering/postprocess.cuh
         include/rendering/raytrace.cuh
         include/rendering/shader.cuh
         include/scenes/basic_spheres.cuh
         include/scenes/cornell_box.cuh
         include/scenes/world_build.cuh
-        include/ui/menu.cuh
-        include/rendering/device_scene.cuh
-        include/io/image_io.cuh
         include/third_party/lodepng/lodepng.h
-        include/core/macros.cuh
-        include/core/numerics.cuh
-        include/rendering/postfx_setup.cuh
+        include/ui/menu.cuh
+        include/utils/perf_logging.cuh
 )
 
 add_executable(CUDA_RayTracing ${SOURCES} ${HEADERS})
