@@ -21,7 +21,6 @@
 #include "rendering/postprocess.cuh"
 #include <chrono>
 #include <cmath>
-#include <utility>
 #include <vector>
 
 // ============================================================================
@@ -268,7 +267,7 @@ static void uploadGaussianKernel(const int radius, const float sigma) {
 }
 
 /// Horizontal 1D Gaussian pass (device).
-__global__ void kGaussianH(const uchar3 * __restrict__ in, uchar3 * __restrict__ out, const int width, const int height,
+__global__ void kGaussianH(const uchar4 * __restrict__ in, uchar4 * __restrict__ out, const int width, const int height,
                            const int radius) {
     const int x = static_cast<int>(blockIdx.x) * static_cast<int>(blockDim.x) + static_cast<int>(threadIdx.x);
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
@@ -277,21 +276,24 @@ __global__ void kGaussianH(const uchar3 * __restrict__ in, uchar3 * __restrict__
     float r = 0.0f, g = 0.0f, b = 0.0f;
     for (int k = -radius; k <= radius; ++k) {
         const int xx = num::clampi(x + k, 0, width - 1);
-        const uchar3 px = in[y * width + xx];
+        const uchar4 px = in[y * width + xx];
         const float w = cGaussian[k + radius];
         r += w * static_cast<float>(px.x);
         g += w * static_cast<float>(px.y);
         b += w * static_cast<float>(px.z);
     }
 
-    out[y * width + x] = make_uchar3(
+    const int idx = y * width + x;
+    out[idx] = make_uchar4(
         static_cast<unsigned char>(fminf(kU8Max, r + 0.5f)),
         static_cast<unsigned char>(fminf(kU8Max, g + 0.5f)),
-        static_cast<unsigned char>(fminf(kU8Max, b + 0.5f)));
+        static_cast<unsigned char>(fminf(kU8Max, b + 0.5f)),
+        in[idx].w
+    );
 }
 
 /// Vertical 1D Gaussian pass (device).
-__global__ void kGaussianV(const uchar3 * __restrict__ in, uchar3 * __restrict__ out, const int width, const int height,
+__global__ void kGaussianV(const uchar4 * __restrict__ in, uchar4 * __restrict__ out, const int width, const int height,
                            const int radius) {
     const int x = static_cast<int>(blockIdx.x) * static_cast<int>(blockDim.x) + static_cast<int>(threadIdx.x);
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
@@ -300,17 +302,20 @@ __global__ void kGaussianV(const uchar3 * __restrict__ in, uchar3 * __restrict__
     float r = 0.0f, g = 0.0f, b = 0.0f;
     for (int k = -radius; k <= radius; ++k) {
         const int yy = num::clampi(y + k, 0, height - 1);
-        const uchar3 px = in[yy * width + x];
+        const uchar4 px = in[yy * width + x];
         const float w = cGaussian[k + radius];
         r += w * static_cast<float>(px.x);
         g += w * static_cast<float>(px.y);
         b += w * static_cast<float>(px.z);
     }
 
-    out[y * width + x] = make_uchar3(
+    const int idx = y * width + x;
+    out[idx] = make_uchar4(
         static_cast<unsigned char>(fminf(kU8Max, r + 0.5f)),
         static_cast<unsigned char>(fminf(kU8Max, g + 0.5f)),
-        static_cast<unsigned char>(fminf(kU8Max, b + 0.5f)));
+        static_cast<unsigned char>(fminf(kU8Max, b + 0.5f)),
+        in[idx].w
+    );
 }
 
 /// Constant memory for bilateral filter tables.
@@ -326,7 +331,7 @@ static void uploadBilateralTables(const int radius, const float sigmaSpatial, co
 
     // Spatial ( (2R+1)^2 )
     const int ksize = (gSpatialSize > 0) ? gSpatialSize : 1;
-    std::vector<float> spatial(static_cast<size_t>(ksize) * static_cast<size_t>(ksize), 1.0f);
+    std::vector spatial(static_cast<size_t>(ksize) * static_cast<size_t>(ksize), 1.0f);
     if (gSpatialRadius > 0 && sigmaSpatial > 0.0f) {
         const float invTwoSigmaS2 = 1.0f / (2.0f * sigmaSpatial * sigmaSpatial);
         for (int dy = -gSpatialRadius; dy <= gSpatialRadius; ++dy) {
@@ -346,7 +351,7 @@ static void uploadBilateralTables(const int radius, const float sigmaSpatial, co
     if (const float sigmaR = (sigmaRange <= 1.0f) ? (sigmaRange * 255.0f) : sigmaRange; sigmaR > 0.0f) {
         const float invTwoSigmaR2 = 1.0f / (2.0f * sigmaR * sigmaR);
         for (int d = 0; d < kU8Range; ++d) {
-            const float df = static_cast<float>(d);
+            const auto df = static_cast<float>(d);
             range[d] = std::exp(-(df * df) * invTwoSigmaR2);
         }
     } else {
@@ -356,15 +361,15 @@ static void uploadBilateralTables(const int radius, const float sigmaSpatial, co
 }
 
 /// Naive bilateral filter kernel (single pass, luma-guided).
-__global__ void kBilateralNaive(const uchar3 * __restrict__ in, uchar3 * __restrict__ out, const int width,
+__global__ void kBilateralNaive(const uchar4 * __restrict__ in, uchar4 * __restrict__ out, const int width,
                                 const int height, const int radius, const int ksize) {
     const int x = static_cast<int>(blockIdx.x) * static_cast<int>(blockDim.x) + static_cast<int>(threadIdx.x);
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
     if (x >= width || y >= height) return;
 
     const int idxCenter = y * width + x;
-    const uchar3 center = in[idxCenter];
-    const int L0 = luma_u8(center);
+    const uchar4 center = in[idxCenter];
+    const int L0 = luma_u8(make_uchar3(center.x, center.y, center.z));
 
     float sumR = 0.0f, sumG = 0.0f, sumB = 0.0f, sumW = 0.0f;
 
@@ -373,10 +378,10 @@ __global__ void kBilateralNaive(const uchar3 * __restrict__ in, uchar3 * __restr
         const int row = (dy + radius) * ksize;
         for (int dx = -radius; dx <= radius; ++dx) {
             const int xx = num::clampi(x + dx, 0, width - 1);
-            const uchar3 s = in[yy * width + xx];
+            const uchar4 s = in[yy * width + xx];
 
             const float ws = cSpatial[row + (dx + radius)];
-            const int dL = abs(luma_u8(s) - L0);
+            const int dL = abs(luma_u8(make_uchar3(s.x, s.y, s.z)) - L0);
             const float wr = cRange[dL];
             const float w = ws * wr;
 
@@ -389,16 +394,18 @@ __global__ void kBilateralNaive(const uchar3 * __restrict__ in, uchar3 * __restr
 
     if (sumW > kSmallEps) {
         const float invW = 1.0f / sumW;
-        out[idxCenter] = make_uchar3(
+        out[idxCenter] = make_uchar4(
             static_cast<unsigned char>(fminf(kU8Max, sumR * invW + 0.5f)),
             static_cast<unsigned char>(fminf(kU8Max, sumG * invW + 0.5f)),
-            static_cast<unsigned char>(fminf(kU8Max, sumB * invW + 0.5f)));
+            static_cast<unsigned char>(fminf(kU8Max, sumB * invW + 0.5f)),
+            center.w
+        );
     } else {
         out[idxCenter] = center;
     }
 }
 
-void PostFX::applyGPU(uchar3 *&d_img, const int width, const int height, const Params &p, Timings *t,
+void PostFX::applyGPU(uchar4 *&d_img, const int width, const int height, const Params &p, Timings *t,
                       cudaStream_t stream) {
     if (p.filter == Filter::None) {
         if (t) t->ms = 0.0f;
@@ -420,9 +427,9 @@ void PostFX::applyGPU(uchar3 *&d_img, const int width, const int height, const P
                                : (p.gaussianRadius < 0 ? 0 : p.gaussianRadius);
         uploadGaussianKernel(radius, p.gaussianSigma);
 
-        uchar3 *d_tmp = nullptr;
-        CUDA_GUARD(cudaMallocAsync(&d_tmp,
-            static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar3), stream));
+        uchar4 *d_tmp = nullptr;
+        CUDA_GUARD(
+            cudaMallocAsync(&d_tmp, static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar4), stream));
 
         kGaussianH<<<grid, block, 0, stream>>>(d_img, d_tmp, width, height, gGaussianRadius);
         CUDA_GUARD(cudaGetLastError());
@@ -438,9 +445,9 @@ void PostFX::applyGPU(uchar3 *&d_img, const int width, const int height, const P
                                : (p.bilateralRadius < 0 ? 0 : p.bilateralRadius);
         uploadBilateralTables(radius, p.bilateralSigmaSpatial, p.bilateralSigmaRange);
 
-        uchar3 *d_tmp = nullptr;
+        uchar4 *d_tmp = nullptr;
         CUDA_GUARD(cudaMallocAsync(&d_tmp,
-            static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar3), stream));
+            static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar4), stream));
 
         kBilateralNaive<<<grid, block, 0, stream>>>(d_img, d_tmp, width, height, gSpatialRadius, gSpatialSize);
         CUDA_GUARD(cudaGetLastError());

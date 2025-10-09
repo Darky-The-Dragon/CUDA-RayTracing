@@ -85,8 +85,7 @@ namespace PostFX {
     /// @param t      Optional pointer to timing results (nullptr = disabled).
     /// @param stream CUDA stream to enqueue operations into (default = 0).
     /// ----------------------------------------------------------------------------
-    void applyGPU(uchar3 *&d_img, int width, int height, const Params &p, Timings *t = nullptr,
-                         cudaStream_t stream = nullptr);
+    void applyGPU(uchar4 *&d_img, int width, int height, const Params &p, Timings *t, cudaStream_t stream = nullptr);
 }
 
 #endif //RENDERING_POSTPROCESS_CUH

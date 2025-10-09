@@ -37,6 +37,6 @@
 ///       [0, width) x [0, height) pixel domain.
 /// ----------------------------------------------------------------------------
 
-__global__ void raytrace(uchar3 * __restrict__ buffer, int width, int height, Camera cam, Vec3 bg, Light light);
+__global__ void raytrace(uchar4 * __restrict__ buffer, int width, int height, Camera cam, Vec3 bg, Light light);
 
 #endif // RENDERING_RAYTRACE_CUH

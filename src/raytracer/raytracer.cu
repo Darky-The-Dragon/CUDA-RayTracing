@@ -19,7 +19,7 @@
 // Main raytracer kernel
 // =======================================================
 // Each thread shades exactly one pixel.
-__global__ void raytrace(uchar3 * __restrict__ buffer, const int width, const int height, const Camera cam,
+__global__ void raytrace(uchar4 * __restrict__ buffer, const int width, const int height, const Camera cam,
                          const Vec3 bg,
                          const Light light) {
     // -------------------------
@@ -36,11 +36,7 @@ __global__ void raytrace(uchar3 * __restrict__ buffer, const int width, const in
     // -------------------------
     // Camera / background / light
     // -------------------------
-    //Camera cam;
-    //cam.fov_deg = defaultCameraFovDeg();
     const Ray ray = generatePrimaryRay(cam, x, y, width, height);
-    //const Vec3 bg = toFloat3(defaultBackgroundU8());
-    //const Light light = defaultLight();
 
 #if DEBUG_DRAW_LIGHT_SPHERE || DEBUG_DRAW_LIGHT_DIRECTION
     // -------------------------
@@ -50,11 +46,11 @@ __global__ void raytrace(uchar3 * __restrict__ buffer, const int width, const in
     {
         uchar3 gizmoColor;
         if (renderLightDebug(ray, light, gizmoColor)) {
-            buffer[idx] = gizmoColor;
+            buffer[idx] = make_uchar4(gizmoColor.x, gizmoColor.y, gizmoColor.z, 255);
             return;
         }
         if (renderLightDirectionRay(ray, light, gizmoColor)) {
-            buffer[idx] = gizmoColor;
+            buffer[idx] = make_uchar4(gizmoColor.x, gizmoColor.y, gizmoColor.z, 255);
             return;
         }
     }
@@ -90,5 +86,6 @@ __global__ void raytrace(uchar3 * __restrict__ buffer, const int width, const in
         bg, useBent
     );
 
-    buffer[idx] = toUChar3(color);
+    const uchar3 rgb = toUChar3(color);
+    buffer[idx] = make_uchar4(rgb.x, rgb.y, rgb.z, 255);
 }
