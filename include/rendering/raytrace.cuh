@@ -24,19 +24,21 @@
 /// ----------------------------------------------------------------------------
 /// @brief GPU raytracing kernel: computes one pixel color per thread.
 ///
-/// @param buffer Device pointer to the output image buffer
-///               (RGB, uchar3 per pixel, row-major order).
-/// @param width  Output image width in pixels.
-/// @param height Output image height in pixels.
-/// @param cam    Camera parameters used to generate primary rays (by value).
-/// @param bg     Background color (linear RGB) used when no geometry is hit.
-/// @param light  Scene light parameters used by the shader (by value).
+/// @param buffer       Device pointer to the output image buffer
+///                     (RGB, uchar3 per pixel, row-major order).
+/// @param width        Output image width in pixels.
+/// @param height       Output image height in pixels.
+/// @param cam          Camera parameters used to generate primary rays (by value).
+/// @param bg           Background color (linear RGB) used when no geometry is hit.
+/// @param light        Scene light parameters used by the shader (by value).
+/// @param frameSeed
 ///
 /// @note Each thread computes exactly one pixel color. The kernel must be
 ///       launched with a grid/block configuration that covers the entire
 ///       [0, width) x [0, height) pixel domain.
 /// ----------------------------------------------------------------------------
 
-__global__ void raytrace(uchar4 * __restrict__ buffer, int width, int height, Camera cam, Vec3 bg, Light light);
+__global__ void raytrace(uchar4 * __restrict__ buffer, int width, int height, Camera cam, Vec3 bg, Light light,
+                         const uint32_t frameSeed);
 
 #endif // RENDERING_RAYTRACE_CUH

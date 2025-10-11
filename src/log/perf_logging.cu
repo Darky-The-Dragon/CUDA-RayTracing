@@ -18,22 +18,20 @@ namespace fs = std::filesystem;
 #include "utils/perf_logging.cuh"
 
 namespace {
-
-const char* fxName(PostFX::Filter f) {
-    switch (f) {
-        case PostFX::Filter::None:      return "Off";
-        case PostFX::Filter::Gaussian:  return "Gaussian";
-        case PostFX::Filter::Bilateral: return "Bilateral";
+    const char *fxName(const PostFX::Filter f) {
+        switch (f) {
+            case PostFX::Filter::None: return "Off";
+            case PostFX::Filter::Gaussian: return "Gaussian";
+            case PostFX::Filter::Bilateral: return "Bilateral";
+        }
+        return "Unknown";
     }
-    return "Unknown";
-}
 
-double gb_per_s_for_bytes(std::size_t bytes, double ms) {
-    if (ms <= 0.0) return 0.0;
-    const double gb = static_cast<double>(bytes) / 1e9;
-    return gb / (ms / 1e3);
-}
-
+    double gb_per_s_for_bytes(const std::size_t bytes, const double ms) {
+        if (ms <= 0.0) return 0.0;
+        const double gb = static_cast<double>(bytes) / 1e9;
+        return gb / (ms / 1e3);
+    }
 } // namespace
 
 GpuInfo queryGpuInfo() {
@@ -55,13 +53,13 @@ GpuInfo queryGpuInfo() {
     return gi;
 }
 
-void printRunSummary(const GpuInfo& gi, const RunStats& rs) {
+void printRunSummary(const GpuInfo &gi, const RunStats &rs) {
     const double mpix = static_cast<double>(rs.pixels) / 1e6;
     const double gpuMPixPerS = (rs.gpuPrimaryMs > 0.0) ? (mpix / (rs.gpuPrimaryMs / 1e3)) : 0.0;
     const double cpuMPixPerS = (rs.cpuPrimaryMs > 0.0) ? (mpix / (rs.cpuPrimaryMs / 1e3)) : 0.0;
 
     std::size_t postfxBytes = 0;
-    if (rs.filter == PostFX::Filter::Gaussian)      postfxBytes = rs.imageBytes * 4ull; // H & V (R+W)
+    if (rs.filter == PostFX::Filter::Gaussian) postfxBytes = rs.imageBytes * 4ull; // H & V (R+W)
     else if (rs.filter == PostFX::Filter::Bilateral) postfxBytes = rs.imageBytes * 2ull; // 1 pass (R+W)
 
     const double gpuFxGBs = gb_per_s_for_bytes(postfxBytes, rs.gpuFxMs);
@@ -70,19 +68,19 @@ void printRunSummary(const GpuInfo& gi, const RunStats& rs) {
 
     std::cout << "\n==================== Run Summary ====================\n";
     std::cout << " GPU : " << gi.name
-              << " | CC " << gi.major << "." << gi.minor
-              << " | SMs " << gi.sms
-              << " | GlobalMem " << (gi.globalMemBytes / (1024*1024)) << " MiB\n";
+            << " | CC " << gi.major << "." << gi.minor
+            << " | SMs " << gi.sms
+            << " | GlobalMem " << (gi.globalMemBytes / (1024 * 1024)) << " MiB\n";
     std::cout << " Grid/Block : (" << rs.grid.x << "x" << rs.grid.y
-              << ") / (" << rs.block.x << "x" << rs.block.y << ")\n";
+            << ") / (" << rs.block.x << "x" << rs.block.y << ")\n";
     std::cout << " Image : " << rs.width << " x " << rs.height
-              << " (" << std::fixed << std::setprecision(2) << mpix << " MPix)\n";
+            << " (" << std::fixed << std::setprecision(2) << mpix << " MPix)\n";
     std::cout << " Scene : " << (rs.sceneLabel.empty() ? "None" : rs.sceneLabel) << "\n";
     std::cout << " Filter : " << fxName(rs.filter)
-              << " | Settings : " << (rs.fxSettingsLabel.empty() ? "DEFAULT" : rs.fxSettingsLabel) << "\n";
+            << " | Settings : " << (rs.fxSettingsLabel.empty() ? "DEFAULT" : rs.fxSettingsLabel) << "\n";
 
     std::cout << " GPU primary : " << std::setprecision(3) << rs.gpuPrimaryMs << " ms  ("
-              << std::setprecision(2) << gpuMPixPerS << " MPix/s)\n";
+            << std::setprecision(2) << gpuMPixPerS << " MPix/s)\n";
     if (rs.filter != PostFX::Filter::None) {
         std::cout << " GPU post-FX : " << std::setprecision(3) << rs.gpuFxMs << " ms";
         if (rs.gpuFxMs > 0.0) {
@@ -92,7 +90,7 @@ void printRunSummary(const GpuInfo& gi, const RunStats& rs) {
     }
     std::cout << " GPU total   : " << std::setprecision(3) << gpuTotalMs << " ms\n";
     std::cout << " CPU primary : " << std::setprecision(3) << rs.cpuPrimaryMs << " ms  ("
-              << std::setprecision(2) << cpuMPixPerS << " MPix/s)\n";
+            << std::setprecision(2) << cpuMPixPerS << " MPix/s)\n";
     if (rs.filter != PostFX::Filter::None) {
         std::cout << " CPU post-FX : " << std::setprecision(3) << rs.cpuFxMs << " ms\n";
     }
@@ -100,9 +98,7 @@ void printRunSummary(const GpuInfo& gi, const RunStats& rs) {
     std::cout << "=====================================================\n";
 }
 
-void appendTimingsCSV(const std::string& outDir,
-                      const GpuInfo& gi,
-                      const RunStats& rs) {
+void appendTimingsCSV(const std::string &outDir, const GpuInfo &gi, const RunStats &rs) {
     // Ensure logs dir exists
     const fs::path csvPath = fs::path(outDir) / "logs" / "timings.csv";
     fs::create_directories(csvPath.parent_path());
@@ -111,21 +107,22 @@ void appendTimingsCSV(const std::string& outDir,
     std::ofstream f(csvPath, std::ios::app);
     if (!f) {
         std::cerr << "[ERROR] Could not open timings.csv for writing: "
-                  << csvPath << "\n";
+                << csvPath << "\n";
         return;
     }
 
-    // Your preferred header names (Excel-friendly) + Scene & PostFX Settings
+    // Header: append new fields at the end for backward compatibility
     if (needHeader) {
         f << "Datetime,Gpu,CC,SMS,Resolution,Scene,Filter,PostFX Settings,"
-             "GPU Primary (ms),GPU PostFX (ms),GPU Total (ms),"
-             "CPU Primary (ms),CPU PostFX (ms),CPU Total (ms),"
-             "MPx,GPU MPx (s),CPU MPx (s),PostFX (bytes),GPU PostFX (GB/s),"
-             "GPU Grid X,GPU Grid Y,GPU Block X,GPU Block Y\n";
+                "GPU Primary (ms),GPU PostFX (ms),GPU Total (ms),"
+                "CPU Primary (ms),CPU PostFX (ms),CPU Total (ms),"
+                "MPx,GPU MPx (s),CPU MPx (s),PostFX (bytes),GPU PostFX (GB/s),"
+                "GPU Grid X,GPU Grid Y,GPU Block X,GPU Block Y,"
+                "Seed,Repeats,RunIndex,CRC_GPU_RAW,CRC_CPU_RAW\n";
     }
 
     // Timestamp
-    std::time_t t = std::time(nullptr);
+    const std::time_t t = std::time(nullptr);
     char buf[32];
 #if defined(_WIN32)
     std::tm tm_buf{};
@@ -136,41 +133,44 @@ void appendTimingsCSV(const std::string& outDir,
     std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_buf);
 #endif
 
-    const std::string cc  = std::to_string(gi.major) + "." + std::to_string(gi.minor);
+    const std::string cc = std::to_string(gi.major) + "." + std::to_string(gi.minor);
     const std::string res = std::to_string(rs.width) + "x" + std::to_string(rs.height);
     const double mpix = static_cast<double>(rs.pixels) / 1e6;
     const double gpuMPixPerS = (rs.gpuPrimaryMs > 0.0) ? (mpix / (rs.gpuPrimaryMs / 1e3)) : 0.0;
     const double cpuMPixPerS = (rs.cpuPrimaryMs > 0.0) ? (mpix / (rs.cpuPrimaryMs / 1e3)) : 0.0;
 
     std::size_t postfxBytes = 0;
-    if (rs.filter == PostFX::Filter::Gaussian)      postfxBytes = rs.imageBytes * 4ull;
+    if (rs.filter == PostFX::Filter::Gaussian) postfxBytes = rs.imageBytes * 4ull;
     else if (rs.filter == PostFX::Filter::Bilateral) postfxBytes = rs.imageBytes * 2ull;
 
     const double gpuFxGBs = (rs.gpuFxMs > 0.0)
-                            ? (static_cast<double>(postfxBytes) / 1e9) / (rs.gpuFxMs / 1e3)
-                            : 0.0;
+                                ? (static_cast<double>(postfxBytes) / 1e9) / (rs.gpuFxMs / 1e3)
+                                : 0.0;
 
     const double gpuTotalMs = rs.gpuPrimaryMs + rs.gpuFxMs;
     const double cpuTotalMs = rs.cpuPrimaryMs + rs.cpuFxMs;
     const bool fxOff = (rs.filter == PostFX::Filter::None);
 
-    // row start
+    // Row start
     f << buf << ','
-      << '"' << gi.name << '"' << ','
-      << cc << ','
-      << gi.sms << ','
-      << res << ','
-      << '"' << (rs.sceneLabel.empty() ? "None" : rs.sceneLabel) << '"' << ','
-      << (rs.filter == PostFX::Filter::None ? "Off" :
-          rs.filter == PostFX::Filter::Gaussian ? "Gaussian" : "Bilateral") << ','
-      << '"' << (rs.fxSettingsLabel.empty() ? "DEFAULT" : rs.fxSettingsLabel) << '"' << ',';
+            << '"' << gi.name << '"' << ','
+            << cc << ','
+            << gi.sms << ','
+            << res << ','
+            << '"' << (rs.sceneLabel.empty() ? "None" : rs.sceneLabel) << '"' << ','
+            << (rs.filter == PostFX::Filter::None
+                    ? "Off"
+                    : rs.filter == PostFX::Filter::Gaussian
+                          ? "Gaussian"
+                          : "Bilateral") << ','
+            << '"' << (rs.fxSettingsLabel.empty() ? "DEFAULT" : rs.fxSettingsLabel) << '"' << ',';
 
     // GPU Primary (ms)
     f << std::fixed << std::setprecision(3) << rs.gpuPrimaryMs << ',';
 
     // GPU PostFX (ms)
     if (fxOff) f << "NaN,";
-    else       f << std::fixed << std::setprecision(3) << rs.gpuFxMs << ',';
+    else f << std::fixed << std::setprecision(3) << rs.gpuFxMs << ',';
 
     // GPU Total (ms)
     f << std::fixed << std::setprecision(3) << gpuTotalMs << ',';
@@ -180,26 +180,36 @@ void appendTimingsCSV(const std::string& outDir,
 
     // CPU PostFX (ms)
     if (fxOff) f << "NaN,";
-    else       f << std::fixed << std::setprecision(3) << rs.cpuFxMs << ',';
+    else f << std::fixed << std::setprecision(3) << rs.cpuFxMs << ',';
 
     // CPU Total (ms)
     f << std::fixed << std::setprecision(3) << cpuTotalMs << ',';
 
     // MPx, GPU MPx (s), CPU MPx (s)
     f << std::setprecision(2) << mpix << ','
-      << std::setprecision(2) << gpuMPixPerS << ','
-      << std::setprecision(2) << cpuMPixPerS << ',';
+            << std::setprecision(2) << gpuMPixPerS << ','
+            << std::setprecision(2) << cpuMPixPerS << ',';
 
     // PostFX (bytes)
     if (fxOff) f << 0 << ',';
-    else       f << static_cast<long long>(postfxBytes) << ',';
+    else f << static_cast<long long>(postfxBytes) << ',';
 
     // GPU PostFX (GB/s)
     if (fxOff) f << "NaN,";
-    else       f << std::fixed << std::setprecision(3) << gpuFxGBs << ',';
+    else f << std::fixed << std::setprecision(3) << gpuFxGBs << ',';
 
     // Grid/Block
     f << rs.grid.x << ',' << rs.grid.y << ','
-      << rs.block.x << ',' << rs.block.y
-      << '\n';
+            << rs.block.x << ',' << rs.block.y << ',';
+
+    // New fields (append at end): Seed,Repeats,RunIndex,CRC_GPU_RAW,CRC_CPU_RAW
+    f << rs.seed << ','
+            << rs.repeats << ','
+            << rs.runIndex << ',';
+
+    // CRCs as 8-hex (0xXXXXXXXX). Save/restore flags to not disturb float formatting.
+    const auto old_flags = f.flags();
+    f << "0x" << std::hex << std::uppercase << rs.gpuCRC << ','
+            << "0x" << std::hex << std::uppercase << rs.cpuCRC << '\n';
+    f.flags(old_flags);
 }

@@ -19,9 +19,8 @@
 // - Composes scenes via bitmask (Cornell | Spheres | Cubes ...)
 // - Supports the same debug gizmos (light sphere/arrow), gated by runtime flags
 // - Output stored in uchar3 buffer (RGB, 0–255 per channel)
-__host__ void cpu_raytrace(uchar3 *buffer, int width, int height,
-                           uint32_t sceneMask,
-                           const DebugConfigHost &dbg) {
+__host__ void cpu_raytrace(uchar3 *buffer, int width, int height, uint32_t sceneMask, const DebugConfigHost &dbg,
+                           const uint32_t frameSeed) {
     // ------------------------
     // Scene setup (from mask)
     // ------------------------
@@ -60,8 +59,7 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height,
             // ------------------------
 #if DEBUG_DRAW_LIGHT_SPHERE
             if (dbg.drawLightSphere) {
-                uchar3 gizmoColor;
-                if (renderLightDebug(ray, light, gizmoColor)) {
+                if (uchar3 gizmoColor; renderLightDebug(ray, light, gizmoColor)) {
                     buffer[idx] = gizmoColor;
                     continue;
                 }
@@ -69,8 +67,7 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height,
 #endif
 #if DEBUG_DRAW_LIGHT_DIRECTION
             if (dbg.drawLightDir) {
-                uchar3 gizmoColor;
-                if (renderLightDirectionRay(ray, light, gizmoColor)) {
+                if (uchar3 gizmoColor; renderLightDirectionRay(ray, light, gizmoColor)) {
                     buffer[idx] = gizmoColor;
                     continue;
                 }
@@ -92,12 +89,13 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height,
             // -------------------------
             const int softSamples = defaultUseSoftShadows() ? defaultSoftShadowSamples() : 0; // 0 = hard
             const bool useBent = defaultUseBentShadows();
-            const int maxDepth = 2; // primary + one bounce; adjust as needed
+            constexpr int maxDepth = 2; // primary + one bounce; adjust as needed
 
             // Per-pixel RNG seed
-            const uint32_t seed = 0u
-                                  ^ (0x9E3779B1u * (static_cast<uint32_t>(x) + 1u))
-                                  ^ (0x85EBCA77u * (static_cast<uint32_t>(y) + 1u));
+            uint32_t seed = frameSeed;
+            seed ^= 0x9E3779B1u * (static_cast<uint32_t>(x) + 1u);
+            seed ^= 0x85EBCA77u * (static_cast<uint32_t>(y) + 1u);
+            seed ^= 0xC2B2AE3Du;
 
             // shadeSurface returns gamma-encoded color in [0,1]
             const Vec3 color = shadeSurface(

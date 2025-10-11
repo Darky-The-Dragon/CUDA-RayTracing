@@ -20,8 +20,7 @@
 // =======================================================
 // Each thread shades exactly one pixel.
 __global__ void raytrace(uchar4 * __restrict__ buffer, const int width, const int height, const Camera cam,
-                         const Vec3 bg,
-                         const Light light) {
+                         const Vec3 bg, const Light light, const uint32_t frameSeed) {
     // -------------------------
     // Thread → pixel coordinates
     // -------------------------
@@ -75,9 +74,9 @@ __global__ void raytrace(uchar4 * __restrict__ buffer, const int width, const in
     constexpr int maxDepth = 2;
 
     // Per-pixel RNG seed
-    const uint32_t seed = 0u
-                          ^ (0x9E3779B1u * (static_cast<uint32_t>(x) + 1u))
-                          ^ (0x85EBCA77u * (static_cast<uint32_t>(y) + 1u));
+    uint32_t seed = frameSeed;seed ^= 0x9E3779B1u * (static_cast<uint32_t>(x) + 1u);
+    seed ^= 0x85EBCA77u * (static_cast<uint32_t>(y) + 1u);
+    seed ^= 0xC2B2AE3Du;
 
     // shadeSurface returns gamma-encoded color in [0,1]
     const Vec3 color = shadeSurface(

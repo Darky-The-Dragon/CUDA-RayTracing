@@ -62,6 +62,7 @@ set(HEADERS
         include/scenes/world_build.cuh
         include/third_party/lodepng/lodepng.h
         include/ui/menu.cuh
+        include/utils/hash.cuh
         include/utils/perf_logging.cuh
 )
 

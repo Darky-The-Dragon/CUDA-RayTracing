@@ -33,9 +33,10 @@ struct DebugConfigHost {
 /// @param height   Image height in pixels.
 /// @param sceneMask Bitmask of sub-scenes to compose (Cornell | Spheres | ...).
 /// @param dbg       Host debug toggles (runtime), combined with compile-time macros.
+/// @param frameSeed
 /// ----------------------------------------------------------------------------
-void cpu_raytrace(uchar3 *buffer, int width, int height,
-                  std::uint32_t sceneMask,
-                  const DebugConfigHost &dbg);
+
+void cpu_raytrace(uchar3 *buffer, int width, int height, std::uint32_t sceneMask, const DebugConfigHost &dbg,
+                  uint32_t frameSeed);
 
 #endif // RENDERING_CPU_RAYTRACER_CUH

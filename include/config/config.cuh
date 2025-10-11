@@ -19,6 +19,9 @@
 ///  - `sceneMask` is set by the menu (bitwise OR of SceneBits).
 /// ------------------------------------------------------------------------
 struct RuntimeConfig {
+    // Seed
+    uint32_t seed = 0u; /// Default seed for all runs
+
     // Resolution
     int width = 1024; ///< Output width in pixels.
     int height = 1024; ///< Output height in pixels.

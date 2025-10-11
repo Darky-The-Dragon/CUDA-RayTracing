@@ -12,8 +12,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <cstring>  // std::memcpy
-#include <algorithm> // std::max
+#include <cstring>    // std::memcpy
+#include <algorithm>  // std::max
+#include <iomanip>    // std::hex for hash prints
+#include <fstream>    // CRC cache
+#include <sstream>    // CRC cache
 
 namespace fs = std::filesystem;
 
@@ -32,21 +35,18 @@ namespace fs = std::filesystem;
 #include "scenes/world_build.cuh"
 #include "ui/menu.cuh"
 #include "utils/perf_logging.cuh"
+#include "utils/hash.cuh"                // FNV-1a checksum
 
 // ============================================================================
 // Device-side constants
 // ============================================================================
-
-// Debug toggles on device
 __constant__ DebugConfig d_dbg;
 
-// Make constant buffers 16-byte aligned to safely reinterpret_cast to Quad*/Sphere*
 __constant__ __align__(16) unsigned char d_quads_raw[sizeof(Quad) * MAX_QUADS];
 __constant__ int d_numQuads;
 __constant__ __align__(16) unsigned char d_spheres_raw[sizeof(Sphere) * MAX_SPHERES];
 __constant__ int d_numSpheres;
 
-// Host-side sanity: make sure 16 is enough (it is for your types)
 static_assert(alignof(Quad) <= 16, "Quad alignment > 16; bump __align__ on d_quads_raw.");
 static_assert(alignof(Sphere) <= 16, "Sphere alignment > 16; bump __align__ on d_spheres_raw.");
 
@@ -63,57 +63,91 @@ struct CudaEvent {
     CudaEvent &operator=(const CudaEvent &) = delete;
 };
 
-/// ---------------------------------------------------------------------------
-/// @brief One-time CUDA warm-up kernel.
-/// @details Used to trigger driver/runtime initialization before timing.
-/// ---------------------------------------------------------------------------
 __global__ void warmup() {
 }
 
 // ---------------------------------------------------------------------------
-// Occupancy-guided launch chooser for the raytrace kernel (CUDA >= 11.x API)
+// Occupancy-guided launch chooser
 // ---------------------------------------------------------------------------
 static void chooseLaunchDimsRaytrace(const int width, const int height, dim3 &grid, dim3 &block) {
     int minGridSize = 0, optBlockSize = 0;
-
-    // 5-arg overload: (minGridSize, blockSize, kernel, dynamicSMemSize, blockSizeLimit)
     CUDA_GUARD(cudaOccupancyMaxPotentialBlockSize(
-        &minGridSize, &optBlockSize,
-        raytrace, // __global__ kernel symbol
-        /*dynamicSMemSize=*/0, // we don't use dynamic shared mem
-        /*blockSizeLimit=*/0 // let CUDA choose
-    ));
+        &minGridSize, &optBlockSize, raytrace, /*dynSMem=*/0, /*limit=*/0));
 
-    // Fallback if something odd happens
     if (optBlockSize <= 0) {
         block = dim3(16, 16, 1);
     } else {
-        // Shape the 1D suggestion (e.g., 128/256/512) into a warp-friendly 2D tile.
-        // Keep product <= optBlockSize, prefer square-ish tiles.
         int bx = 16, by = std::max(1, optBlockSize / bx);
-        // clamp to at least 1 thread per dim
-        bx = std::max(bx, 1);
-        by = std::max(by, 1);
-
-        // If the product overshoots (can happen with small optBlockSize), reduce by to fit.
         while (bx * by > optBlockSize && by > 1) by >>= 1;
         if (bx * by > optBlockSize) {
             bx = optBlockSize;
             by = 1;
         }
-
         block = dim3(bx, by, 1);
     }
-
-    grid = dim3(
-        (width + block.x - 1) / block.x,
-        (height + block.y - 1) / block.y,
-        1
-    );
+    grid = dim3((width + block.x - 1) / block.x, (height + block.y - 1) / block.y, 1);
 
     RT_DEBUG_ONLY(std::cout
         << "[LAUNCH] Occupancy-picked block: (" << block.x << "x" << block.y << ")\n"
         << "[LAUNCH] Grid: (" << grid.x << "x" << grid.y << ")\n");
+}
+
+// ---------------------------------------------------------------------------
+// Determinism cache helpers (append-only text file)
+// ---------------------------------------------------------------------------
+static std::string makeSceneLabel(int mask) {
+    std::string s;
+    const auto m = static_cast<std::uint32_t>(mask);
+    auto append = [&](const char *name) {
+        if (!s.empty()) s += " | ";
+        s += name;
+    };
+    if (m & SCENE_CORNELL) append("Cornell");
+    if (m & SCENE_SPHERES) append("Spheres");
+    if (m & SCENE_CUBES) append("Cubes");
+    if (s.empty()) s = "None";
+    return s;
+}
+
+static std::string makeDeterminismKey(const char *tag, int w, int h,
+                                      const std::string &scene,
+                                      const char *filterName,
+                                      const std::string &fxSettings,
+                                      uint32_t seed) {
+    std::ostringstream os;
+    os << tag << '|' << w << 'x' << h << '|'
+            << scene << '|' << filterName << '|' << fxSettings << '|'
+            << "seed=" << seed;
+    return os.str();
+}
+
+static bool loadLastCRC(const fs::path &cachePath, const std::string &key, uint32_t &out) {
+    std::ifstream in(cachePath);
+    if (!in) return false;
+    std::string line;
+    bool found = false;
+    while (std::getline(in, line)) {
+        auto comma = line.find(',');
+        if (comma == std::string::npos) continue;
+        if (line.compare(0, comma, key) == 0) {
+            // take the last occurrence
+            std::string val = line.substr(comma + 1);
+            try {
+                out = static_cast<uint32_t>(std::stoul(val));
+                found = true;
+            } catch (...) {
+                /* ignore parse errors */
+            }
+        }
+    }
+    return found;
+}
+
+static void appendCRC(const fs::path &cachePath, const std::string &key, uint32_t crc) {
+    fs::create_directories(cachePath.parent_path());
+    std::ofstream out(cachePath, std::ios::app);
+    if (!out) return;
+    out << key << ',' << crc << '\n';
 }
 
 // ============================================================================
@@ -122,6 +156,7 @@ static void chooseLaunchDimsRaytrace(const int width, const int height, dim3 &gr
 int main() {
     // --- Collect runtime configuration from the user
     RuntimeConfig rc = promptUserForConfig();
+    const uint32_t globalSeed = (rc.seed > 0 ? static_cast<uint32_t>(rc.seed) : 123456789u);
 
     // Build canonical PostFX params once
     const PostFX::Params fx = PostFX::makeParams(rc);
@@ -140,7 +175,6 @@ int main() {
     const int HEIGHT = rc.height;
     const size_t PIXELS = static_cast<size_t>(WIDTH) * static_cast<size_t>(HEIGHT);
 
-    // CPU images are RGB (uchar3), GPU images are RGBA (uchar4)
     const size_t IMAGE_BYTES_RGB = PIXELS * sizeof(uchar3);
     const size_t IMAGE_BYTES_RGBA = PIXELS * sizeof(uchar4);
 
@@ -215,7 +249,7 @@ int main() {
     uchar4 *d_buffer = nullptr; // RGBA on GPU
     CUDA_GUARD(cudaMalloc(&d_buffer, IMAGE_BYTES_RGBA));
 
-    // >>> Occupancy-guided launch setup
+    // Occupancy-guided launch
     dim3 threadsPerBlock, blocksPerGrid;
     chooseLaunchDimsRaytrace(WIDTH, HEIGHT, blocksPerGrid, threadsPerBlock);
 
@@ -224,7 +258,7 @@ int main() {
     RT_DEBUG_ONLY(std::cout << "[GPU DEBUG] Total blocks: "
         << (blocksPerGrid.x * blocksPerGrid.y) << "\n";);
 
-    // Reuse one non-blocking stream for all GPU work (raytrace + post-FX)
+    // Reuse one non-blocking stream
     cudaStream_t stream{};
     CUDA_GUARD(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
@@ -242,26 +276,26 @@ int main() {
     CUDA_GUARD(cudaDeviceGetLimit(&cur, cudaLimitStackSize));
     RT_DEBUG_ONLY(std::cout << "[CUDA] new stack:     " << cur << " bytes\n";);
 
-    // ---- CUDA warm-up (avoid first-launch overhead in timings)
+    // Warm-up
     warmup<<<1, 1, 0, stream>>>();
-    CUDA_DEBUG_CHECK(); // Debug: validate launch
-    CUDA_DEBUG_SYNC(stream); // Debug: wait for warmup to finish
+    CUDA_DEBUG_CHECK();
+    CUDA_DEBUG_SYNC(stream);
 
-    // Build scene once on host (bitmask) and upload to device constants
+    // Build & upload scene
     WorldBuffers W;
-    buildWorld(W, rc.sceneMask); // Compose scenes per menu (Cornell | Spheres | ...)
+    buildWorld(W, rc.sceneMask);
     uploadSceneToDevice(W);
 
     // Upload runtime debug toggles
     uploadDebugToDevice(rc);
 
-    // ---- Timing buckets we'll summarize later
+    // Timings
     double gpuPrimaryMs = 0.0;
     double gpuFxMs = 0.0;
     double cpuPrimaryMs = 0.0;
     double cpuFxMs = 0.0;
 
-    // Launch & time (scope ensures events are destroyed before optional reset)
+    // Launch & time
     {
         CudaEvent start, stop;
         CUDA_GUARD(cudaEventRecord(start.ev, stream));
@@ -271,13 +305,12 @@ int main() {
         const Vec3 bg = toFloat3(defaultBackgroundU8());
         const Light light = defaultLight();
 
-        // NOTE: raytrace expects uchar4* now
         raytrace<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
-            d_buffer, WIDTH, HEIGHT, cam, bg, light);
-        CUDA_DEBUG_CHECK(); // Debug: validate launch only
+            d_buffer, WIDTH, HEIGHT, cam, bg, light, globalSeed);
+        CUDA_DEBUG_CHECK();
 
         CUDA_GUARD(cudaEventRecord(stop.ev, stream));
-        CUDA_GUARD(cudaEventSynchronize(stop.ev)); // completes the stream work for timing
+        CUDA_GUARD(cudaEventSynchronize(stop.ev));
 
         float gpu_ms = 0.0f;
         CUDA_GUARD(cudaEventElapsedTime(&gpu_ms, start.ev, stop.ev));
@@ -285,18 +318,76 @@ int main() {
         std::cout << "[TIMING] GPU raytracing took " << gpuPrimaryMs << " ms\n";
     }
 
-    // Copy GPU result to host & save (RAW)
+    // Copy GPU RAW -> host, save, hash, determinism check
     std::vector<uchar4> h_gpu(PIXELS);
     CUDA_GUARD(cudaMemcpyAsync(h_gpu.data(), d_buffer, IMAGE_BYTES_RGBA,
         cudaMemcpyDeviceToHost, stream));
-    CUDA_GUARD(cudaStreamSynchronize(stream)); // Required for correctness before saving
+    CUDA_GUARD(cudaStreamSynchronize(stream));
     save_rgba_with_optional_wm(make_path("output_gpu"), h_gpu.data(),
                                std::string("GPU | PostFX:") + kRawFxLabel);
 
-    // ---- GPU POST-FX (in-place on d_buffer), then save _pp
+    const uint32_t gpuCRC = fnv1a32(h_gpu.data(), IMAGE_BYTES_RGBA);
+    std::cout << std::hex << std::showbase
+            << "[CHECK] GPU RAW CRC32: " << gpuCRC << std::dec << std::noshowbase << "\n";
+
+    // Determinism key & cache
+    const std::string sceneLbl = makeSceneLabel(rc.sceneMask);
+    // Build fxSettings label like in summary
+    std::string fxSettings;
+    if (fx.filter == PostFX::Filter::None) {
+        fxSettings = "OFF";
+    } else {
+        const bool isDefault =
+                (fx.filter == PostFX::Filter::Gaussian && rc.gaussRadius == 2 && rc.gaussSigma == 1.2f) ||
+                (fx.filter == PostFX::Filter::Bilateral && rc.bilateralRadius == 3 &&
+                 rc.bilateralSigmaSpatial == 2.0f && rc.bilateralSigmaRange == 0.15f);
+        if (isDefault) {
+            fxSettings = "DEFAULT";
+        } else if (fx.filter == PostFX::Filter::Gaussian) {
+            char buf[96];
+            std::snprintf(buf, sizeof(buf), "Gaussian(r=%d,sigma=%.3f)", rc.gaussRadius, rc.gaussSigma);
+            fxSettings = buf;
+        } else {
+            char buf[128];
+            std::snprintf(buf, sizeof(buf), "Bilateral(r=%d,sigmaS=%.3f,sigmaR=%.3f)",
+                          rc.bilateralRadius, rc.bilateralSigmaSpatial, rc.bilateralSigmaRange);
+            fxSettings = buf;
+        }
+    }
+
+    const char *filterName =
+            (fx.filter == PostFX::Filter::None)
+                ? "Off"
+                : (fx.filter == PostFX::Filter::Gaussian)
+                      ? "Gaussian"
+                      : "Bilateral";
+
+    const fs::path crcCache = fs::path(outDir) / "logs" / "last_crc_cache.txt";
+
+    // --- GPU RAW determinism check (between runs)
+    {
+        const std::string keyGPU = makeDeterminismKey("GPU", WIDTH, HEIGHT, sceneLbl, filterName, fxSettings,
+                                                      globalSeed);
+        uint32_t prevCRC = 0;
+        if (loadLastCRC(crcCache, keyGPU, prevCRC)) {
+            if (prevCRC == gpuCRC) {
+                RT_DEBUG_ONLY(std::cout << "[CHECK] Deterministic: GPU RAW matches previous run for key ["
+                    << keyGPU << "] (crc " << std::hex << std::showbase
+                    << gpuCRC << std::dec << std::noshowbase << ")\n";);
+            } else {
+                RT_DEBUG_ONLY(std::cout << "[WARN ] Non-deterministic: GPU RAW changed for key ["
+                    << keyGPU << "] (was " << std::hex << std::showbase
+                    << prevCRC << ", now " << gpuCRC << std::dec << std::noshowbase << ")\n";);
+            }
+        } else {
+            RT_DEBUG_ONLY(std::cout << "[CHECK] First run for key [" << keyGPU << "], caching CRC.\n";);
+        }
+        appendCRC(crcCache, keyGPU, gpuCRC);
+    }
+
+    // ---- GPU POST-FX
     if (fx.filter != PostFX::Filter::None) {
         PostFX::Timings fxT{};
-        // applyGPU takes uchar4*& and may swap pointers internally
         PostFX::applyGPU(d_buffer, WIDTH, HEIGHT, fx, &fxT, stream);
         gpuFxMs = static_cast<double>(fxT.ms);
         std::cout << "[TIMING] GPU post-FX took " << gpuFxMs << " ms\n";
@@ -304,32 +395,75 @@ int main() {
         std::vector<uchar4> h_gpu_pp(PIXELS);
         CUDA_GUARD(cudaMemcpyAsync(h_gpu_pp.data(), d_buffer, IMAGE_BYTES_RGBA,
             cudaMemcpyDeviceToHost, stream));
-        CUDA_GUARD(cudaStreamSynchronize(stream)); // Required before saving
+        CUDA_GUARD(cudaStreamSynchronize(stream));
         save_rgba_with_optional_wm(make_path("output_gpu_pp"), h_gpu_pp.data(),
                                    std::string("GPU | PostFX:") + kPpFxLabel);
+
+        const uint32_t gpuPPCRC = fnv1a32(h_gpu_pp.data(), IMAGE_BYTES_RGBA);
+        std::cout << std::hex << std::showbase
+                << "[CHECK] GPU PP  CRC32: " << gpuPPCRC << std::dec << std::noshowbase << "\n";
+
+        const std::string keyGPP = makeDeterminismKey("GPU_PP", WIDTH, HEIGHT, sceneLbl, filterName, fxSettings,
+                                                      globalSeed);
+        uint32_t prevCRC = 0;
+        if (loadLastCRC(crcCache, keyGPP, prevCRC)) {
+            if (prevCRC == gpuPPCRC) {
+                RT_DEBUG_ONLY(std::cout << "[CHECK] Deterministic: GPU PostFX matches previous run for key ["
+                    << keyGPP << "] (crc " << std::hex << std::showbase
+                    << gpuPPCRC << std::dec << std::noshowbase << ")\n";);
+            } else {
+                RT_DEBUG_ONLY(std::cout << "[WARN ] Non-deterministic: GPU PostFX changed for key ["
+                    << keyGPP << "] (was " << std::hex << std::showbase
+                    << prevCRC << ", now " << gpuPPCRC << std::dec << std::noshowbase << ")\n";);
+            }
+        } else {
+            RT_DEBUG_ONLY(std::cout << "[CHECK] First run for key [" << keyGPP << "], caching CRC.\n";);
+        }
+        appendCRC(crcCache, keyGPP, gpuPPCRC);
     }
 
     // ---------------- CPU Raytracer ----------------
     std::vector<uchar3> h_cpu(PIXELS); // CPU path remains RGB
     std::cout << "\n[CPU DEBUG] Starting CPU raytracing...\n";
 
-    // CPU follows the same scene & debug toggles chosen in the menu
     DebugConfigHost dbgHost{};
     dbgHost.drawLightSphere = rc.dbgDrawLightSphere;
     dbgHost.drawLightDir = rc.dbgDrawLightDir;
     dbgHost.drawNormals = rc.dbgDrawNormals;
 
     const auto cpuStart = std::chrono::high_resolution_clock::now();
-    cpu_raytrace(h_cpu.data(), WIDTH, HEIGHT, rc.sceneMask, dbgHost);
+    cpu_raytrace(h_cpu.data(), WIDTH, HEIGHT, rc.sceneMask, dbgHost, globalSeed);
     const auto cpuEnd = std::chrono::high_resolution_clock::now();
     cpuPrimaryMs = std::chrono::duration<double, std::milli>(cpuEnd - cpuStart).count();
     std::cout << "[TIMING] CPU raytracing took " << cpuPrimaryMs << " ms\n";
 
-    // CPU RAW
+    // CPU RAW save + hash + determinism check
     save_rgb_with_optional_wm(make_path("output_cpu"), h_cpu.data(),
                               std::string("CPU | PostFX:") + kRawFxLabel);
 
-    // ---- CPU POST-FX (on copy), then save _pp
+    const uint32_t cpuCRC = fnv1a32(h_cpu.data(), IMAGE_BYTES_RGB);
+    std::cout << std::hex << std::showbase
+            << "[CHECK] CPU RAW CRC32: " << cpuCRC << std::dec << std::noshowbase << "\n"; {
+        const std::string keyCPU = makeDeterminismKey("CPU", WIDTH, HEIGHT, sceneLbl, filterName, fxSettings,
+                                                      globalSeed);
+        uint32_t prevCRC = 0;
+        if (loadLastCRC(crcCache, keyCPU, prevCRC)) {
+            if (prevCRC == cpuCRC) {
+                RT_DEBUG_ONLY(std::cout << "[CHECK] Deterministic: CPU RAW matches previous run for key ["
+                    << keyCPU << "] (crc " << std::hex << std::showbase
+                    << cpuCRC << std::dec << std::noshowbase << ")\n";);
+            } else {
+                RT_DEBUG_ONLY(std::cout << "[WARN ] Non-deterministic: CPU RAW changed for key ["
+                    << keyCPU << "] (was " << std::hex << std::showbase
+                    << prevCRC << ", now " << cpuCRC << std::dec << std::noshowbase << ")\n";);
+            }
+        } else {
+            RT_DEBUG_ONLY(std::cout << "[CHECK] First run for key [" << keyCPU << "], caching CRC.\n";);
+        }
+        appendCRC(crcCache, keyCPU, cpuCRC);
+    }
+
+    // CPU Post-FX (optional)
     if (fx.filter != PostFX::Filter::None) {
         std::vector<uchar3> h_cpu_pp = h_cpu; // keep raw intact
         PostFX::Timings fxT{};
@@ -338,50 +472,33 @@ int main() {
         std::cout << "[TIMING] CPU post-FX took " << cpuFxMs << " ms\n";
         save_rgb_with_optional_wm(make_path("output_cpu_pp"), h_cpu_pp.data(),
                                   std::string("CPU | PostFX:") + kPpFxLabel);
+
+        const uint32_t cpuPPCRC = fnv1a32(h_cpu_pp.data(), IMAGE_BYTES_RGB);
+        std::cout << std::hex << std::showbase
+                << "[CHECK] CPU PP  CRC32: " << cpuPPCRC << std::dec << std::noshowbase << "\n";
+
+        const std::string keyCPP = makeDeterminismKey("CPU_PP", WIDTH, HEIGHT, sceneLbl, filterName, fxSettings,
+                                                      globalSeed);
+        uint32_t prevCRC = 0;
+        if (loadLastCRC(crcCache, keyCPP, prevCRC)) {
+            if (prevCRC == cpuPPCRC) {
+                RT_DEBUG_ONLY(std::cout << "[CHECK] Deterministic: CPU PostFX matches previous run for key ["
+                    << keyCPP << "] (crc " << std::hex << std::showbase
+                    << cpuPPCRC << std::dec << std::noshowbase << ")\n";);
+            } else {
+                RT_DEBUG_ONLY(std::cout << "[WARN ] Non-deterministic: CPU PostFX changed for key ["
+                    << keyCPP << "] (was " << std::hex << std::showbase
+                    << prevCRC << ", now " << cpuPPCRC << std::dec << std::noshowbase << ")\n";);
+            }
+        } else {
+            RT_DEBUG_ONLY(std::cout << "[CHECK] First run for key [" << keyCPP << "], caching CRC.\n";);
+        }
+        appendCRC(crcCache, keyCPP, cpuPPCRC);
     }
 
     // ---------------- Run Summary + CSV ----------------
     {
-        // Scene label (e.g., "Cornell | Spheres" or "None")
-        auto scene_label = [](int mask) -> std::string {
-            std::string s;
-            const auto m = static_cast<std::uint32_t>(mask);
-            auto append = [&](const char *name) {
-                if (!s.empty()) s += " | ";
-                s += name;
-            };
-            if (m & SCENE_CORNELL) append("Cornell");
-            if (m & SCENE_SPHERES) append("Spheres");
-            if (m & SCENE_CUBES) append("Cubes");
-            if (s.empty()) s = "None";
-            return s;
-        };
-
-        // PostFX settings label: OFF / DEFAULT / explicit params
-        std::string fxSettings;
-        if (fx.filter == PostFX::Filter::None) {
-            fxSettings = "OFF";
-        } else {
-            const bool isDefault =
-                    (fx.filter == PostFX::Filter::Gaussian && rc.gaussRadius == 2 &&
-                     rc.gaussSigma == 1.2f) ||
-                    (fx.filter == PostFX::Filter::Bilateral && rc.bilateralRadius == 3 &&
-                     rc.bilateralSigmaSpatial == 2.0f && rc.bilateralSigmaRange == 0.15f);
-
-            if (isDefault) {
-                fxSettings = "DEFAULT";
-            } else if (fx.filter == PostFX::Filter::Gaussian) {
-                char buf[96];
-                std::snprintf(buf, sizeof(buf), "Gaussian(r=%d,sigma=%.3f)", rc.gaussRadius, rc.gaussSigma);
-                fxSettings = buf;
-            } else {
-                char buf[128];
-                std::snprintf(buf, sizeof(buf), "Bilateral(r=%d,sigmaS=%.3f,sigmaR=%.3f)",
-                              rc.bilateralRadius, rc.bilateralSigmaSpatial, rc.bilateralSigmaRange);
-                fxSettings = buf;
-            }
-        }
-
+        // Rebuild fxSettings (already built above)
         RunStats rs{};
         rs.width = WIDTH;
         rs.height = HEIGHT;
@@ -390,7 +507,7 @@ int main() {
         rs.grid = blocksPerGrid;
         rs.block = threadsPerBlock;
         rs.filter = fx.filter;
-        rs.sceneLabel = scene_label(rc.sceneMask);
+        rs.sceneLabel = sceneLbl;
         rs.fxSettingsLabel = fxSettings;
         rs.gpuPrimaryMs = gpuPrimaryMs;
         rs.gpuFxMs = gpuFxMs;

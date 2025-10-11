@@ -49,6 +49,12 @@ struct RunStats {
     double gpuFxMs{0.0};
     double cpuPrimaryMs{0.0};
     double cpuFxMs{0.0};
+
+    uint32_t seed = 0;
+    int repeats = 1;
+    int runIndex = 0;
+    uint32_t gpuCRC = 0;
+    uint32_t cpuCRC = 0;
 };
 
 GpuInfo queryGpuInfo();
