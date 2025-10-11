@@ -12,11 +12,13 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <cstring>  // std::memcpy
+#include <algorithm> // std::max
 
 namespace fs = std::filesystem;
 
 #include "core/camera.cuh"
-#include "core/macros.cuh"              // HD/FINL + CUDA_GUARD / CUDA_CHECK_LAUNCH_AND_SYNC
+#include "core/macros.cuh"              // HD/FINL + CUDA_GUARD / CUDA_CHECK_LAUNCH_AND_SYNC + debug helpers
 #include "config/config.cuh"
 #include "config/defaults.cuh"
 #include "config/scene_config.cuh"
@@ -55,7 +57,9 @@ struct CudaEvent {
     cudaEvent_t ev{};
     CudaEvent() { CUDA_GUARD(cudaEventCreate(&ev)); }
     ~CudaEvent() { CUDA_GUARD(cudaEventDestroy(ev)); }
+
     CudaEvent(const CudaEvent &) = delete;
+
     CudaEvent &operator=(const CudaEvent &) = delete;
 };
 
@@ -64,6 +68,52 @@ struct CudaEvent {
 /// @details Used to trigger driver/runtime initialization before timing.
 /// ---------------------------------------------------------------------------
 __global__ void warmup() {
+}
+
+// ---------------------------------------------------------------------------
+// Occupancy-guided launch chooser for the raytrace kernel (CUDA >= 11.x API)
+// ---------------------------------------------------------------------------
+static void chooseLaunchDimsRaytrace(const int width, const int height, dim3 &grid, dim3 &block) {
+    int minGridSize = 0, optBlockSize = 0;
+
+    // 5-arg overload: (minGridSize, blockSize, kernel, dynamicSMemSize, blockSizeLimit)
+    CUDA_GUARD(cudaOccupancyMaxPotentialBlockSize(
+        &minGridSize, &optBlockSize,
+        raytrace, // __global__ kernel symbol
+        /*dynamicSMemSize=*/0, // we don't use dynamic shared mem
+        /*blockSizeLimit=*/0 // let CUDA choose
+    ));
+
+    // Fallback if something odd happens
+    if (optBlockSize <= 0) {
+        block = dim3(16, 16, 1);
+    } else {
+        // Shape the 1D suggestion (e.g., 128/256/512) into a warp-friendly 2D tile.
+        // Keep product <= optBlockSize, prefer square-ish tiles.
+        int bx = 16, by = std::max(1, optBlockSize / bx);
+        // clamp to at least 1 thread per dim
+        bx = std::max(bx, 1);
+        by = std::max(by, 1);
+
+        // If the product overshoots (can happen with small optBlockSize), reduce by to fit.
+        while (bx * by > optBlockSize && by > 1) by >>= 1;
+        if (bx * by > optBlockSize) {
+            bx = optBlockSize;
+            by = 1;
+        }
+
+        block = dim3(bx, by, 1);
+    }
+
+    grid = dim3(
+        (width + block.x - 1) / block.x,
+        (height + block.y - 1) / block.y,
+        1
+    );
+
+    RT_DEBUG_ONLY(std::cout
+        << "[LAUNCH] Occupancy-picked block: (" << block.x << "x" << block.y << ")\n"
+        << "[LAUNCH] Grid: (" << grid.x << "x" << grid.y << ")\n");
 }
 
 // ============================================================================
@@ -165,15 +215,14 @@ int main() {
     uchar4 *d_buffer = nullptr; // RGBA on GPU
     CUDA_GUARD(cudaMalloc(&d_buffer, IMAGE_BYTES_RGBA));
 
-    constexpr dim3 threadsPerBlock(16, 16);
-    const dim3 blocksPerGrid(
-        (WIDTH + threadsPerBlock.x - 1) / threadsPerBlock.x,
-        (HEIGHT + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    // >>> Occupancy-guided launch setup
+    dim3 threadsPerBlock, blocksPerGrid;
+    chooseLaunchDimsRaytrace(WIDTH, HEIGHT, blocksPerGrid, threadsPerBlock);
 
-    std::cout << "[GPU DEBUG] Threads per block: "
-            << (threadsPerBlock.x * threadsPerBlock.y) << "\n";
-    std::cout << "[GPU DEBUG] Total blocks: "
-            << (blocksPerGrid.x * blocksPerGrid.y) << "\n";
+    RT_DEBUG_ONLY(std::cout << "[GPU DEBUG] Threads per block: "
+        << (threadsPerBlock.x * threadsPerBlock.y) << "\n";);
+    RT_DEBUG_ONLY(std::cout << "[GPU DEBUG] Total blocks: "
+        << (blocksPerGrid.x * blocksPerGrid.y) << "\n";);
 
     // Reuse one non-blocking stream for all GPU work (raytrace + post-FX)
     cudaStream_t stream{};
@@ -182,21 +231,21 @@ int main() {
     const uint64_t totalThreads =
             static_cast<uint64_t>(blocksPerGrid.x) * threadsPerBlock.x *
             static_cast<uint64_t>(blocksPerGrid.y) * threadsPerBlock.y;
-    std::cout << "[GPU DEBUG] Total threads: " << totalThreads << "\n";
+    RT_DEBUG_ONLY(std::cout << "[GPU DEBUG] Total threads: " << totalThreads << "\n";);
 
     // Device stack (only needed if recursion is used on device)
     size_t cur = 0;
     CUDA_GUARD(cudaDeviceGetLimit(&cur, cudaLimitStackSize));
-    std::cout << "[CUDA] current stack: " << cur << " bytes\n";
+    RT_DEBUG_ONLY(std::cout << "[CUDA] current stack: " << cur << " bytes\n";);
     static constexpr size_t WANT_STACK = 16 * 1024;
     CUDA_GUARD(cudaDeviceSetLimit(cudaLimitStackSize, WANT_STACK));
     CUDA_GUARD(cudaDeviceGetLimit(&cur, cudaLimitStackSize));
-    std::cout << "[CUDA] new stack:     " << cur << " bytes\n";
+    RT_DEBUG_ONLY(std::cout << "[CUDA] new stack:     " << cur << " bytes\n";);
 
     // ---- CUDA warm-up (avoid first-launch overhead in timings)
     warmup<<<1, 1, 0, stream>>>();
-    CUDA_GUARD(cudaGetLastError());
-    CUDA_GUARD(cudaStreamSynchronize(stream));
+    CUDA_DEBUG_CHECK(); // Debug: validate launch
+    CUDA_DEBUG_SYNC(stream); // Debug: wait for warmup to finish
 
     // Build scene once on host (bitmask) and upload to device constants
     WorldBuffers W;
@@ -206,7 +255,7 @@ int main() {
     // Upload runtime debug toggles
     uploadDebugToDevice(rc);
 
-    // ---- Timing buckets we’ll summarize later
+    // ---- Timing buckets we'll summarize later
     double gpuPrimaryMs = 0.0;
     double gpuFxMs = 0.0;
     double cpuPrimaryMs = 0.0;
@@ -225,7 +274,7 @@ int main() {
         // NOTE: raytrace expects uchar4* now
         raytrace<<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
             d_buffer, WIDTH, HEIGHT, cam, bg, light);
-        CUDA_GUARD(cudaGetLastError()); // validate launch only
+        CUDA_DEBUG_CHECK(); // Debug: validate launch only
 
         CUDA_GUARD(cudaEventRecord(stop.ev, stream));
         CUDA_GUARD(cudaEventSynchronize(stop.ev)); // completes the stream work for timing
@@ -240,7 +289,7 @@ int main() {
     std::vector<uchar4> h_gpu(PIXELS);
     CUDA_GUARD(cudaMemcpyAsync(h_gpu.data(), d_buffer, IMAGE_BYTES_RGBA,
         cudaMemcpyDeviceToHost, stream));
-    CUDA_GUARD(cudaStreamSynchronize(stream));
+    CUDA_GUARD(cudaStreamSynchronize(stream)); // Required for correctness before saving
     save_rgba_with_optional_wm(make_path("output_gpu"), h_gpu.data(),
                                std::string("GPU | PostFX:") + kRawFxLabel);
 
@@ -255,7 +304,7 @@ int main() {
         std::vector<uchar4> h_gpu_pp(PIXELS);
         CUDA_GUARD(cudaMemcpyAsync(h_gpu_pp.data(), d_buffer, IMAGE_BYTES_RGBA,
             cudaMemcpyDeviceToHost, stream));
-        CUDA_GUARD(cudaStreamSynchronize(stream));
+        CUDA_GUARD(cudaStreamSynchronize(stream)); // Required before saving
         save_rgba_with_optional_wm(make_path("output_gpu_pp"), h_gpu_pp.data(),
                                    std::string("GPU | PostFX:") + kPpFxLabel);
     }
@@ -314,9 +363,11 @@ int main() {
             fxSettings = "OFF";
         } else {
             const bool isDefault =
-                    (fx.filter == PostFX::Filter::Gaussian && rc.gaussRadius == 2 && rc.gaussSigma == 1.2f) ||
+                    (fx.filter == PostFX::Filter::Gaussian && rc.gaussRadius == 2 &&
+                     rc.gaussSigma == 1.2f) ||
                     (fx.filter == PostFX::Filter::Bilateral && rc.bilateralRadius == 3 &&
                      rc.bilateralSigmaSpatial == 2.0f && rc.bilateralSigmaRange == 0.15f);
+
             if (isDefault) {
                 fxSettings = "DEFAULT";
             } else if (fx.filter == PostFX::Filter::Gaussian) {
