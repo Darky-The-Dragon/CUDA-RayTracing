@@ -61,7 +61,7 @@ constexpr bool sceneEnabled(const std::uint32_t mask, const SceneBits bit) {
 // ------------------------------------------------------------
 // These define the maximum number of primitives that can be stored in
 // WorldBuffers without overflow. Must match between CPU and GPU builds.
-static constexpr int MAX_QUADS = 16; ///< Maximum quads in scene
+static constexpr int MAX_QUADS = 32; ///< Maximum quads in scene
 static constexpr int MAX_SPHERES = 16; ///< Maximum spheres in scene
 
 #endif // CONFIG_SCENE_CONFIG_CUH

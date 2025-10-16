@@ -284,6 +284,8 @@ int main() {
     // Build & upload scene
     WorldBuffers W;
     buildWorld(W, rc.sceneMask);
+    std::cout << "[SCENE] numQuads=" << W.numQuads
+                        << " numSpheres=" << W.numSpheres << "\n";
     uploadSceneToDevice(W);
 
     // Upload runtime debug toggles

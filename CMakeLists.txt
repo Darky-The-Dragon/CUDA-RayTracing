@@ -57,13 +57,13 @@ set(HEADERS
         include/rendering/postprocess.cuh
         include/rendering/raytrace.cuh
         include/rendering/shader.cuh
-        include/scenes/basic_spheres.cuh
         include/scenes/cornell_box.cuh
         include/scenes/world_build.cuh
         include/third_party/lodepng/lodepng.h
         include/ui/menu.cuh
         include/utils/hash.cuh
         include/utils/perf_logging.cuh
+        include/scenes/basic_boxes.cuh
 )
 
 add_executable(CUDA_RayTracing ${SOURCES} ${HEADERS})

@@ -5,13 +5,9 @@
 #include "core/numerics.cuh"
 #include "core/material.cuh"
 #include "core/vec3.cuh"
-#include "core/ray.cuh"
 
 // Canonical quadratic solver: |O + tD - C|^2 = r^2
-HD FINL bool sphereIntersectRoots(
-    const Vec3 &O, const Vec3 &D,
-    const Vec3 &C, float r,
-    float &t0, float &t1) {
+HD FINL bool sphereIntersectRoots(const Vec3 &O, const Vec3 &D, const Vec3 &C, const float r, float &t0, float &t1) {
     const Vec3 oc = O - C;
     const float a = D.dot(D); // =1 if D normalized
     const float b = 2.0f * oc.dot(D);
@@ -24,7 +20,7 @@ HD FINL bool sphereIntersectRoots(
     float tn = (-b - s) * inv2a;
     float tf = (-b + s) * inv2a;
     if (tn > tf) {
-        float tmp = tn;
+        const float tmp = tn;
         tn = tf;
         tf = tmp;
     }
