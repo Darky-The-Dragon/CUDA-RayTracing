@@ -1,24 +1,36 @@
 /**
  * @file cpu_raytracer.cu
  * @brief CPU reference renderer: matches GPU scene/light/shader for visual parity.
- * @details Composes scenes via bitmask, supports runtime debug toggles, writes RGB.
+ * @details Builds the scene on the host, traces primary rays + simple bounces,
+ * writes RGB (uchar3), and respects the same debug gizmos as the GPU path.
+ *
+ * Design notes:
+ *  - Host-only TU on purpose; no device constants/symbols pulled in.
+ *  - I keep shading/shared math identical to the GPU to compare images 1:1.
+ *  - Scene composition is bitmask-driven (Cornell | Spheres | Cubes).
  */
 
-#include "core/camera.cuh"
+// Project
 #include "rendering/cpu_raytracer.cuh"
-#include "config/defaults.cuh"
+#include "core/camera.cuh"
 #include "rendering/shader.cuh"
+#include "config/defaults.cuh"
 #include "scenes/world_build.cuh"   // host-side world build (no device symbols)
 #include "debug/debug_utils.cuh"
 #include "debug/debug_config.cuh"
 
-// =======================================================
-// CPU reference raytracer (host-only; no device constants)
-// =======================================================
-// - Matches GPU scene setup, lighting, and shading
-// - Composes scenes via bitmask (Cornell | Spheres | Cubes ...)
-// - Supports the same debug gizmos (light sphere/arrow), gated by runtime flags
-// - Output stored in uchar3 buffer (RGB, 0–255 per channel)
+// Module: CPU reference raytracer (host-only; no device constants)
+
+/**
+ * @brief Render the active scene entirely on the CPU.
+ * @param buffer     [out] RGB framebuffer (uchar3 per pixel), row-major.
+ * @param width      Image width in pixels.
+ * @param height     Image height in pixels.
+ * @param sceneMask  Bitmask of sub-scenes to compose (Cornell | Spheres | Cubes...).
+ * @param dbg        Runtime debug toggles (light gizmos, normals, etc.).
+ * @param frameSeed  Per-frame RNG seed (bakes into soft shadow sampling).
+ * @note Matches GPU setup and shading for visual parity.
+ */
 __host__ void cpu_raytrace(uchar3 *buffer, int width, int height, uint32_t sceneMask, const DebugConfigHost &dbg,
                            const uint32_t frameSeed) {
     // ------------------------
@@ -45,18 +57,12 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height, uint32_t scene
     // ------------------------
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            //constexpr float kInf = 1e20f;
             const int idx = y * width + x;
 
-            // ------------------------
             // Ray generation
-            // ------------------------
             const Ray ray = generatePrimaryRay(cam, x, y, width, height);
 
-            // ------------------------
-            // Debug gizmos (draw on top), same as GPU path.
-            // Early-out if a gizmo “hits” this pixel.
-            // ------------------------
+            // Debug gizmos (draw on top), same as GPU path. Early-out on hit.
 #if DEBUG_DRAW_LIGHT_SPHERE
             if (dbg.drawLightSphere) {
                 if (uchar3 gizmoColor; renderLightDebug(ray, light, gizmoColor)) {
@@ -74,24 +80,19 @@ __host__ void cpu_raytrace(uchar3 *buffer, int width, int height, uint32_t scene
             }
 #endif
 #if DEBUG_DRAW_NORMALS
-            // (Optional) If you later implement normal visualization,
-            // gate with dbg.drawNormals here.
+            // If/when a normal-visualization gizmo lands here, gate with dbg.drawNormals.
 #endif
 
-            // ------------------------
-            // Intersection test
-            // ------------------------
+            // Closest hit
             Hit hit{};
             traceClosest(ray, G, hit);
 
-            // -------------------------
-            // Shading (unified)
-            // -------------------------
+            // Shading (unified CPU/GPU)
             const int softSamples = defaultUseSoftShadows() ? defaultSoftShadowSamples() : 0; // 0 = hard
             const bool useBent = defaultUseBentShadows();
-            constexpr int maxDepth = 2; // primary + one bounce; adjust as needed
+            constexpr int maxDepth = 4; // primary + a couple of bounces
 
-            // Per-pixel RNG seed
+            // Per-pixel RNG seed (scramble with pixel coords)
             uint32_t seed = frameSeed;
             seed ^= 0x9E3779B1u * (static_cast<uint32_t>(x) + 1u);
             seed ^= 0x85EBCA77u * (static_cast<uint32_t>(y) + 1u);

@@ -1,84 +1,72 @@
-// ============================================================================
-// @file plane.cuh
-// @brief Infinite plane primitive for ray tracing.
-//
-// Defines an infinite plane using:
-//   - A point lying on the plane
-//   - A unit-length surface normal
-//
-// The plane equation is derived from:
-//   (P - planePoint) · normalVector = 0
-//
-// Notes:
-//   - The normal is normalized at construction to keep math stable.
-//   - Useful for ground planes, walls, or simple intersection tests.
-//   - Includes a built-in RGB color field for quick debugging.
-// ============================================================================
+/**
+ * @file plane.cuh
+ * @brief Infinite plane primitive for ray tracing.
+ * @details
+ * Defined by:
+ *  - A point lying on the plane.
+ *  - A unit-length surface normal.
+ * Equation: (P - planePoint) · normalVector = 0.
+ * Notes:
+ *  - Normal is normalized in the parameterized ctor.
+ *  - Handy for ground planes / walls and quick intersection tests.
+ *  - Includes an RGB color field for quick debug shading.
+ */
 
-#ifndef GEOMETRY_PLANE_CUH
-#define GEOMETRY_PLANE_CUH
+#pragma once
 
+#include <cuda_runtime.h>
 #include "core/macros.cuh"
 #include "core/numerics.cuh"
 #include "core/vec3.cuh"
 #include "core/ray.cuh"
 
-/// ----------------------------------------------------------------------------
-/// @struct Plane
-/// @brief Represents an infinite plane defined by a point and a normal vector.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Infinite plane defined by a point and a normal vector.
+ */
 struct Plane {
     Vec3 planePoint; ///< Any point on the plane (world space).
-    Vec3 normalVector; ///< Unit surface normal (points to the "front" side).
+    Vec3 normalVector; ///< Unit surface normal (points to the “front” side).
     uchar3 surfaceColor; ///< Simple RGB color for debug/quick shading.
 
-    /// ------------------------------------------------------------------------
-    /// @brief Default constructor — white plane at origin, zero normal.
-    /// ------------------------------------------------------------------------
-    HD
-
-    Plane()
+    /**
+     * @brief Default: white plane at origin, zero normal.
+     * @note Zero normal yields no intersections until set by caller.
+     */
+    HD Plane()
         : planePoint(0.0f),
           normalVector(0.0f),
           surfaceColor(make_uchar3(255, 255, 255)) {
     }
 
-    /// ------------------------------------------------------------------------
-    /// @brief Fully parameterized constructor.
-    /// @param pointOnPlane A point lying on the plane (world space).
-    /// @param normal       Plane's surface normal (will be normalized internally).
-    /// @param color        RGB color for quick debug shading.
-    /// ------------------------------------------------------------------------
-    HD Plane(const Vec3 &pointOnPlane, const Vec3 &normal, const uchar3 color)
+    /**
+     * @brief Fully parameterized constructor.
+     * @param pointOnPlane A point on the plane (world space).
+     * @param normal       Plane normal (normalized internally).
+     * @param color        RGB color for quick debug shading.
+     */
+    HD Plane(const Vec3 &pointOnPlane, const Vec3 &normal, uchar3 color)
         : planePoint(pointOnPlane),
           normalVector(normal.normalize()),
           surfaceColor(color) {
     }
 
-    /// ------------------------------------------------------------------------
-    /// @brief Ray–plane intersection test.
-    ///
-    /// Uses the analytic intersection formula:
-    ///   t = (planePoint - ray.origin) · normal / (ray.direction · normal)
-    ///
-    /// Rejects intersections if:
-    ///   - Ray is parallel to plane (denominator ~ 0)
-    ///   - Intersection lies behind the ray origin
-    ///
-    /// @param ray         Input ray.
-    /// @param outDistance Output — hit distance t (valid only if true is returned).
-    /// @return true if the ray intersects the plane in front of its origin.
-    /// ------------------------------------------------------------------------
+    /**
+     * @brief Ray–plane intersection test.
+     * @details Uses: t = (planePoint - ray.origin) · n / (ray.direction · n).
+     * Rejects when:
+     *  - Ray is parallel/coplanar (denominator ≈ 0).
+     *  - Hit lies behind the origin (t ≤ eps).
+     * @param ray         Input ray.
+     * @param outDistance Output hit distance t (valid only if true).
+     * @return true if the ray hits the plane in front of the origin.
+     */
     HD bool intersect(const Ray &ray, float &outDistance) const {
         const float denom = normalVector.dot(ray.direction);
-
-        // denom ~ 0 → parallel or coplanar (ignored)
-        if (fabsf(denom) <= num::kEps()) return false;
+        if (fabsf(denom) <= num::kEps()) return false; // parallel/coplanar
 
         const Vec3 p0l0 = planePoint - ray.origin;
         const float t = p0l0.dot(normalVector) / denom;
 
-        // Accept only hits in front of the origin
         if (t > num::kEps()) {
             outDistance = t;
             return true;
@@ -86,11 +74,9 @@ struct Plane {
         return false;
     }
 
-    /// ------------------------------------------------------------------------
-    /// @brief Get the plane's surface normal (unit length).
-    /// @return Normalized surface normal vector.
-    /// ------------------------------------------------------------------------
-    HD Vec3 getNormal(const Vec3 &) const { return normalVector; }
+    /**
+     * @brief Get the plane's surface normal (unit length).
+     * @return Normalized surface normal vector.
+     */
+    HD inline Vec3 getNormal(const Vec3 &) const { return normalVector; }
 };
-
-#endif // GEOMETRY_PLANE_CUH

@@ -1,9 +1,19 @@
-// ============================================================================
-// @file perf_logging.cu
-// @brief Implementation for device query, summary print, CSV logging.
-// ============================================================================
+/**
+ * @file perf_logging.cu
+ * @brief Device query, run-summary print, and CSV timing logging.
+ * @details Implements:
+ *  - `queryGpuInfo()` to snapshot the active CUDA device.
+ *  - `printRunSummary()` to dump a concise one-page run summary.
+ *  - `appendTimingsCSV()` to append a stable CSV row for later analysis.
+ *
+ * Design notes:
+ *  - I keep all CSV field additions appended to the end for back-compat.
+ *  - Byte/seconds conversions are explicit; GB means 1e9 here for bandwidth.
+ */
 
 #include <cuda_runtime.h>
+
+// STL
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -18,6 +28,9 @@ namespace fs = std::filesystem;
 #include "utils/perf_logging.cuh"
 
 namespace {
+    /**
+     * @brief Human-readable name for a PostFX filter.
+     */
     const char *fxName(const PostFX::Filter f) {
         switch (f) {
             case PostFX::Filter::None: return "Off";
@@ -27,13 +40,28 @@ namespace {
         return "Unknown";
     }
 
+    /**
+     * @brief Compute GB/s for a byte count over a millisecond interval.
+     * @param bytes Total bytes logically moved (read+write where applicable).
+     * @param ms    Elapsed time in milliseconds.
+     * @return Bandwidth in gigabytes per second (1 GB = 1e9 bytes). 0 if ms <= 0.
+     */
     double gb_per_s_for_bytes(const std::size_t bytes, const double ms) {
         if (ms <= 0.0) return 0.0;
-        const double gb = static_cast<double>(bytes) / 1e9;
+        const double gb = static_cast<double>(bytes) / 1e9; // decimal GB
         return gb / (ms / 1e3);
     }
 } // namespace
 
+// -------------------------------------------------------------------------------------------------
+// Public API
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * @brief Query basic properties of the current CUDA device.
+ * @return Filled GpuInfo snapshot (name, CC, SMs, clocks, memory).
+ * @note Uses CUDA_GUARD for consistent error handling.
+ */
 GpuInfo queryGpuInfo() {
     GpuInfo gi{};
     int dev = 0;
@@ -53,6 +81,12 @@ GpuInfo queryGpuInfo() {
     return gi;
 }
 
+/**
+ * @brief Print a concise run summary (device, grid/block, timings).
+ * @param gi GPU device info.
+ * @param rs Run statistics bundle (geometry, timings, labels).
+ * @note Shows MPix/s for CPU/GPU and logical GB/s for PostFX when enabled.
+ */
 void printRunSummary(const GpuInfo &gi, const RunStats &rs) {
     const double mpix = static_cast<double>(rs.pixels) / 1e6;
     const double gpuMPixPerS = (rs.gpuPrimaryMs > 0.0) ? (mpix / (rs.gpuPrimaryMs / 1e3)) : 0.0;
@@ -98,6 +132,16 @@ void printRunSummary(const GpuInfo &gi, const RunStats &rs) {
     std::cout << "=====================================================\n";
 }
 
+/**
+ * @brief Append a CSV row with timings and run context.
+ * @param outDir Output directory (the function creates `<outDir>/logs` if missing).
+ * @param gi     GPU device info snapshot.
+ * @param rs     Run statistics bundle.
+ * @note
+ *  - Adds a header only when creating the file.
+ *  - Keeps new columns append-only to preserve old parsers.
+ *  - Uses decimal GB (1e9) for bandwidth fields.
+ */
 void appendTimingsCSV(const std::string &outDir, const GpuInfo &gi, const RunStats &rs) {
     // Ensure logs dir exists
     const fs::path csvPath = fs::path(outDir) / "logs" / "timings.csv";
@@ -106,8 +150,7 @@ void appendTimingsCSV(const std::string &outDir, const GpuInfo &gi, const RunSta
 
     std::ofstream f(csvPath, std::ios::app);
     if (!f) {
-        std::cerr << "[ERROR] Could not open timings.csv for writing: "
-                << csvPath << "\n";
+        std::cerr << "[ERROR] Could not open timings.csv for writing: " << csvPath << "\n";
         return;
     }
 
@@ -121,7 +164,7 @@ void appendTimingsCSV(const std::string &outDir, const GpuInfo &gi, const RunSta
                 "Seed,Repeats,RunIndex,CRC_GPU_RAW,CRC_CPU_RAW\n";
     }
 
-    // Timestamp
+    // Timestamp (local)
     const std::time_t t = std::time(nullptr);
     char buf[32];
 #if defined(_WIN32)
@@ -160,9 +203,7 @@ void appendTimingsCSV(const std::string &outDir, const GpuInfo &gi, const RunSta
             << '"' << (rs.sceneLabel.empty() ? "None" : rs.sceneLabel) << '"' << ','
             << (rs.filter == PostFX::Filter::None
                     ? "Off"
-                    : rs.filter == PostFX::Filter::Gaussian
-                          ? "Gaussian"
-                          : "Bilateral") << ','
+                    : (rs.filter == PostFX::Filter::Gaussian ? "Gaussian" : "Bilateral")) << ','
             << '"' << (rs.fxSettingsLabel.empty() ? "DEFAULT" : rs.fxSettingsLabel) << '"' << ',';
 
     // GPU Primary (ms)
@@ -207,7 +248,7 @@ void appendTimingsCSV(const std::string &outDir, const GpuInfo &gi, const RunSta
             << rs.repeats << ','
             << rs.runIndex << ',';
 
-    // CRCs as 8-hex (0xXXXXXXXX). Save/restore flags to not disturb float formatting.
+    // CRCs as 8-hex (0xXXXXXXXX). Preserve float flags.
     const auto old_flags = f.flags();
     f << "0x" << std::hex << std::uppercase << rs.gpuCRC << ','
             << "0x" << std::hex << std::uppercase << rs.cpuCRC << '\n';

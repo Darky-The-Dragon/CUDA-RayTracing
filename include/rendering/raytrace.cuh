@@ -1,44 +1,32 @@
-// ============================================================================
-// @file raytrace.cuh
-// @brief GPU raytracing kernel entry point.
-//
-// Declares the CUDA kernel responsible for primary-ray rendering on the GPU.
-// Each CUDA thread shades exactly one pixel, performing the following steps:
-//   1. Generate a primary ray from the camera for the pixel's coordinates.
-//   2. Intersect the ray with the active scene geometry.
-//   3. Shade the hit point using Lambert shading + hard shadows.
-//   4. Write the gamma-encoded RGB result to the output buffer.
-//
-// This function is implemented in `raytracer.cu` and is designed to match
-// the CPU path's behavior for visual parity.
-// ============================================================================
+/**
+* @file raytrace.cuh
+ * @brief GPU ray tracing kernel entry point (primary rays).
+ * @details
+ * Each CUDA thread shades one pixel:
+ *  1) Generate a primary ray from camera.
+ *  2) Intersect active scene geometry.
+ *  3) Shade with Lambert + hard shadows.
+ *  4) Write gamma-encoded RGB to the output buffer.
+ * Implementation is in `raytracer.cu` and mirrors the CPU path for parity.
+ */
 
-#ifndef RENDERING_RAYTRACE_CUH
-#define RENDERING_RAYTRACE_CUH
+#pragma once
 
 #include <cuda_runtime.h>
 #include "core/camera.cuh"
 #include "core/vec3.cuh"
 #include "rendering/light.cuh"
 
-/// ----------------------------------------------------------------------------
-/// @brief GPU raytracing kernel: computes one pixel color per thread.
-///
-/// @param buffer       Device pointer to the output image buffer
-///                     (RGB, uchar3 per pixel, row-major order).
-/// @param width        Output image width in pixels.
-/// @param height       Output image height in pixels.
-/// @param cam          Camera parameters used to generate primary rays (by value).
-/// @param bg           Background color (linear RGB) used when no geometry is hit.
-/// @param light        Scene light parameters used by the shader (by value).
-/// @param frameSeed
-///
-/// @note Each thread computes exactly one pixel color. The kernel must be
-///       launched with a grid/block configuration that covers the entire
-///       [0, width) x [0, height) pixel domain.
-/// ----------------------------------------------------------------------------
-
+/**
+ * @brief GPU ray tracing kernel: computes one pixel color per thread.
+ * @param buffer  Device output buffer (row-major), `uchar4` per pixel for aligned writes.
+ * @param width   Output width in pixels.
+ * @param height  Output height in pixels.
+ * @param cam     Camera parameters (by value).
+ * @param bg      Background color in **linear RGB** (used on miss).
+ * @param light   Scene light parameters (by value).
+ * @param frameSeed Frame-specific RNG seed.
+ * @note Launch the grid/block to fully cover the pixel domain [0,width) × [0,height).
+ */
 __global__ void raytrace(uchar4 * __restrict__ buffer, int width, int height, Camera cam, Vec3 bg, Light light,
-                         const uint32_t frameSeed);
-
-#endif // RENDERING_RAYTRACE_CUH
+                         uint32_t frameSeed);

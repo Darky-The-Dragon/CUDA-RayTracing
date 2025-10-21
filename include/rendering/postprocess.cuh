@@ -1,91 +1,65 @@
-// ============================================================================
-// @file postprocess.cuh
-// @brief CPU/GPU post-processing filters (Gaussian blur, Bilateral filter).
-//
-// Provides a unified interface for applying image-space post-processing
-// on either CPU or GPU. Filters are applied directly to RGB images stored
-// in host or device memory.
-//
-// Main purposes:
-//   - Apply Gaussian blur for smoothing/noise reduction
-//   - Apply Bilateral filter for edge-preserving smoothing
-//   - Compare CPU vs GPU results for consistency
-//   - Benchmark performance between CPU and GPU implementations
-//
-// The CPU and GPU versions match in:
-//   - Filter parameterization (radius, sigma values)
-//   - Edge clamping at image borders
-//   - Output format (uchar3 RGB)
-//
-// The GPU backend uses CUDA kernels with shared/constant memory optimizations,
-// while the CPU backend provides a straightforward reference implementation.
-// ============================================================================
+/**
+ * @file postprocess.cuh
+ * @brief CPU/GPU post-processing filters (Gaussian, Bilateral).
+ * @details
+ * Unified interface to apply image-space post-FX on CPU or GPU.
+ * Goals:
+ *  - Gaussian blur for smoothing/noise reduction.
+ *  - Bilateral filter for edge-preserving smoothing.
+ *  - CPU↔GPU consistency for parameters, border handling, and outputs.
+ * Notes:
+ *  - CPU entry uses uchar3 (RGB).
+ *  - GPU entry uses uchar4 (RGBA/4-byte alignment) for coalescing.
+ */
 
-#ifndef RENDERING_POSTPROCESS_CUH
-#define RENDERING_POSTPROCESS_CUH
+#pragma once
 
 #include <cuda_runtime.h>
 
-
 namespace PostFX {
-    /// ----------------------------------------------------------------------------
-    /// @enum Filter
-    /// @brief Available post-processing filters.
-    /// ----------------------------------------------------------------------------
+    /**
+     * @brief Available post-processing filters.
+     */
     enum class Filter { None, Gaussian, Bilateral };
 
-    /// ----------------------------------------------------------------------------
-    /// @struct Params
-    /// @brief Configuration parameters for post-processing filters.
-    ///
-    /// @param filter            Filter type (None, Gaussian, Bilateral).
-    /// @param gaussianRadius    Kernel radius for Gaussian blur.
-    /// @param gaussianSigma     Standard deviation for Gaussian blur.
-    /// @param bilateralRadius   Window radius for Bilateral filter.
-    /// @param bilateralSigmaSpatial Spatial standard deviation (distance falloff).
-    /// @param bilateralSigmaRange   Range standard deviation (intensity falloff).
-    /// ----------------------------------------------------------------------------
+    /**
+     * @brief Configuration parameters for post-processing.
+     */
     struct Params {
-        Filter filter = Filter::Gaussian;
-        int gaussianRadius = 2;
-        float gaussianSigma = 1.2f;
-        int bilateralRadius = 3;
-        float bilateralSigmaSpatial = 2.0f;
-        float bilateralSigmaRange = 0.15f;
+        Filter filter = Filter::Gaussian; ///< Filter type.
+        int gaussianRadius = 2; ///< Kernel radius (Gaussian).
+        float gaussianSigma = 1.2f; ///< Sigma (Gaussian).
+        int bilateralRadius = 3; ///< Window radius (Bilateral).
+        float bilateralSigmaSpatial = 2.0f; ///< Spatial sigma (distance falloff).
+        float bilateralSigmaRange = 0.15f; ///< Range sigma (intensity falloff, 0..1).
     };
 
-    /// ----------------------------------------------------------------------------
-    /// @struct Timings
-    /// @brief Timing results for a post-processing pass.
-    ///
-    /// @param ms Duration in milliseconds for the whole filter step.
-    /// ----------------------------------------------------------------------------
+    /**
+     * @brief Timing results for a post-processing pass.
+     */
     struct Timings {
-        float ms = 0.f; // time for the whole post-FX step
+        float ms = 0.f; ///< Duration in milliseconds for the whole step.
     };
 
-    /// ----------------------------------------------------------------------------
-    /// @brief Apply post-processing filter on the CPU.
-    ///
-    /// @param h_img Pointer to host image buffer (uchar3 RGB).
-    /// @param w     Image width in pixels.
-    /// @param h     Image height in pixels.
-    /// @param p     Post-processing parameters (filter type + settings).
-    /// @param t     Optional pointer to timing results (nullptr = disabled).
-    /// ----------------------------------------------------------------------------
+    /**
+     * @brief Apply post-processing on the CPU.
+     * @param h_img  Host image buffer (uchar3 RGB), size = w*h.
+     * @param w      Image width in pixels.
+     * @param h      Image height in pixels.
+     * @param p      Post-processing parameters.
+     * @param t      Optional timings (nullptr to disable).
+     */
     void applyCPU(uchar3 *h_img, int w, int h, const Params &p, Timings *t = nullptr);
 
-    /// ----------------------------------------------------------------------------
-    /// @brief Apply post-processing filter on the GPU.
-    ///
-    /// @param d_img  Pointer to device image buffer (uchar3 RGB).
-    /// @param width      Image width in pixels.
-    /// @param height      Image height in pixels.
-    /// @param p      Post-processing parameters (filter type + settings).
-    /// @param t      Optional pointer to timing results (nullptr = disabled).
-    /// @param stream CUDA stream to enqueue operations into (default = 0).
-    /// ----------------------------------------------------------------------------
+    /**
+     * @brief Apply post-processing on the GPU.
+     * @param d_img   Device image buffer (uchar4 RGBA/aligned), size = width*height.
+     *                Passed by reference to allow in-place reallocation if needed.
+     * @param width   Image width in pixels.
+     * @param height  Image height in pixels.
+     * @param p       Post-processing parameters.
+     * @param t       Optional timings (nullptr to disable).
+     * @param stream  CUDA stream to enqueue ops (nullptr = default stream).
+     */
     void applyGPU(uchar4 *&d_img, int width, int height, const Params &p, Timings *t, cudaStream_t stream = nullptr);
-}
-
-#endif //RENDERING_POSTPROCESS_CUH
+} // namespace PostFX

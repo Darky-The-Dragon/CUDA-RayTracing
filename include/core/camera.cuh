@@ -1,19 +1,15 @@
-// ============================================================================
-// @file camera.cuh
-// @brief Camera definition and primary ray generation.
-//
-// Defines a simple pinhole camera model and provides a helper function
-// to generate primary rays for ray tracing. Supports adjustable position,
-// orientation, and field of view.
-//
-// Conventions:
-//  - Right-handed coordinate system
-//  - Default forward vector looks down -Z, +Y is up
-//  - Pixel coordinates are assumed to have bottom-left origin (y=0 at bottom).
-//    If your raster has top-left origin, flip ndcY as noted in generatePrimaryRay().
-// ============================================================================
-#ifndef CORE_CAMERA_CUH
-#define CORE_CAMERA_CUH
+/**
+ * @file camera.cuh
+ * @brief Camera definition and primary ray generation.
+ * @details Simple pinhole camera and a helper to generate primary rays.
+ * Conventions:
+ *  - Right-handed coordinates.
+ *  - Default forward looks down −Z; +Y is up.
+ *  - Pixel coords assume bottom-left origin (y = 0 at bottom). For top-left rasters,
+ *    flip ndcY as noted in generatePrimaryRay().
+ */
+
+#pragma once
 
 #include <cuda_runtime.h>
 #include "core/macros.cuh"
@@ -22,75 +18,62 @@
 #include "core/ray.cuh"
 
 // ----------------------------------------------------------------------------
-// Camera Struct
+// Camera
 // ----------------------------------------------------------------------------
 
-/// ----------------------------------------------------------------------------
-/// @brief Represents a basic pinhole camera.
-///
-/// Members:
-///  - position: Camera location in world space.
-///  - forward:  Direction camera is facing.
-///  - up:       Up vector defining camera orientation.
-///  - fov_deg:  Field of view in degrees (vertical FOV).
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Basic pinhole camera parameters.
+ */
 struct Camera {
-    Vec3 position{0.0f, 1.0f, 5.0f}; ///< Camera position
-    Vec3 forward{0.0f, 0.0f, -1.0f}; ///< Forward direction
-    Vec3 up{0.0f, 1.0f, 0.0f}; ///< Up vector
-    float fov_deg{90.0f}; ///< Vertical field of view (degrees)
+    Vec3 position{0.0f, 1.0f, 5.0f}; ///< Camera position in world space.
+    Vec3 forward{0.0f, 0.0f, -1.0f}; ///< Forward/look direction.
+    Vec3 up{0.0f, 1.0f, 0.0f}; ///< Up vector (not required orthogonal to forward).
+    float fov_deg{90.0f}; ///< Vertical field of view (degrees).
 };
 
-/// ----------------------------------------------------------------------------
-/// @brief Generate a primary ray from the camera through a given pixel.
-///
-/// Computes the ray's direction based on the camera's orientation,
-/// field of view, aspect ratio, and pixel coordinates.
-///
-/// @param cam    The camera parameters.
-/// @param x      Pixel X coordinate (0 = leftmost pixel).
-/// @param y      Pixel Y coordinate (0 = bottom pixel).
-/// @param width  Image width in pixels.
-/// @param height Image height in pixels.
-/// @return Ray pointing from the camera through the pixel.
-///
-/// @note If your raster uses top-left origin, flip ndcY after computing it.
-/// ----------------------------------------------------------------------------
-HD inline Ray generatePrimaryRay(
-    const Camera &cam, const unsigned int x, const unsigned int y, const int width, const int height) {
-    // Basic guards
+/**
+ * @brief Generate a primary ray from the camera through a pixel.
+ * @param cam     Camera parameters.
+ * @param x       Pixel X coordinate (0 = leftmost).
+ * @param y       Pixel Y coordinate (0 = bottom).
+ * @param width   Image width in pixels.
+ * @param height  Image height in pixels.
+ * @return Ray pointing from the camera through the pixel center.
+ * @note Pixel centers are (x+0.5, y+0.5). For top-left origin rasters, negate `ndcY`.
+ */
+HD inline Ray generatePrimaryRay(const Camera &cam, const unsigned int x, const unsigned int y, const int width,
+                                 const int height) {
+    // Basic guards / scalars
     const auto w = static_cast<float>(width);
     const auto h = static_cast<float>(height);
     const float aspect = (h > 0.0f) ? (w / h) : 1.0f;
     const float fov_rad = num::deg2rad(cam.fov_deg);
     const float half_tan = tanf(0.5f * fov_rad);
 
-    // NDC in [-1,1], pixel centers (x+0.5,y+0.5); bottom-left origin.
-    // Flip the sign of ndcY here to use top-left origin in the raster.
+    // NDC in [-1, 1] using pixel centers; bottom-left origin.
     float ndcX = ((static_cast<float>(x) + 0.5f) / w) * 2.0f - 1.0f;
     float ndcY = ((static_cast<float>(y) + 0.5f) / h) * 2.0f - 1.0f;
 
     // For top-left origin, uncomment:
     // ndcY = -ndcY;
 
-    // Apply aspect ratio and FOV scaling
+    // Apply aspect and FOV scaling
     ndcX *= aspect * half_tan;
     ndcY *= half_tan;
 
-    // Orthonormal basis from forward/up
+    // Orthonormal basis from forward/up (with safe up fallback)
     const Vec3 F = cam.forward.normalize();
 
-    // Avoid degenerate up vector
-    Vec3 up = cam.up;
-    if (fabsf(F.dot(up.normalize())) > 0.999f) {
+    Vec3 up = cam.up.normalize();
+    if (fabsf(F.dot(up)) > 0.999f) {
+        // nearly collinear
         up = Vec3(0.0f, 1.0f, 0.0f);
+        if (fabsf(F.dot(up)) > 0.999f) up = Vec3(0.0f, 0.0f, 1.0f); // second fallback
     }
 
-    const Vec3 R = F.cross(up).normalize(); // Right vector
-    const Vec3 U = R.cross(F).normalize(); // Corrected up vector
+    const Vec3 R = F.cross(up).normalize(); // Right
+    const Vec3 U = R.cross(F).normalize(); // Corrected up
 
     const Vec3 dir = (F + R * ndcX + U * ndcY).normalize();
     return Ray{cam.position, dir};
 }
-
-#endif // CORE_CAMERA_CUH

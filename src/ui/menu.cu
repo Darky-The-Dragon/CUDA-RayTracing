@@ -1,17 +1,43 @@
+/**
+ * @file menu.cu
+ * @brief Console menu to build a RuntimeConfig (y/n booleans, defaults on Enter).
+ * @details Interactive, minimal TUI that edits resolution, scene mask, debug flags,
+ *          post-FX, and export settings, then returns a filled RuntimeConfig.
+ *
+ * Design notes:
+ *  - All parsing is tolerant: blank input keeps defaults; bad numbers fall back.
+ *  - Number inputs clamp at call sites to keep ranges local/obvious.
+ *  - Menus are small loops that return on empty input (Enter).
+ */
+
 #include "ui/menu.cuh"
+
+// STL
 #include <iostream>
 #include <string>
 #include <cctype>
 #include <cstdint>
 #include <iterator>
+
+// Project
 #include "config/config.cuh"
 #include "config/scene_config.cuh"
 
 namespace {
-    // --- Helpers ---------------------------------------------------------------
+    // ------------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------------
 
-    // Unified number parsing: trims input; if empty or invalid -> returns default.
-    // Clamp is user-provided to keep ranges local to call sites.
+    /**
+     * @brief Read a number from stdin or return a default if empty/invalid.
+     * @tparam T      Numeric type (int/float).
+     * @tparam ClampFn Callable: T -> T (range clamp or transform).
+     * @param prompt  Prompt text; if empty, just reads a line.
+     * @param def     Default value to use on empty/invalid input.
+     * @param clamp   Clamp function to enforce local ranges.
+     * @return Parsed and clamped value, or @p def if parsing fails.
+     * @note Trims ASCII whitespace; accepts decimal integer/float.
+     */
     template<class T, class ClampFn>
     T readNumberOrDefault(const std::string &prompt, T def, ClampFn clamp) {
         if (!prompt.empty()) {
@@ -41,13 +67,16 @@ namespace {
         }
     }
 
+    /// @brief Clamp int in [lo,hi].
     int clampi(const int v, const int lo, const int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
+    /// @brief Resolution preset tuple.
     struct Res {
         int w, h;
         const char *label;
     };
 
+    /// @brief A handful of common resolution presets.
     const Res kCommonRes[] = {
         {1024, 1024, "Test"},
         {640, 480, "VGA"},
@@ -58,9 +87,15 @@ namespace {
         {5120, 2880, "5K"},
     };
 
+    // Resolution clamps (soft limits; the renderer can go higher if needed).
     constexpr int MIN_W = 64, MIN_H = 64;
     constexpr int MAX_W = 8192, MAX_H = 8192;
 
+    /**
+     * @brief Convert a scene mask to a short label string.
+     * @param mask Scene bitmask.
+     * @return Human-readable summary, e.g. "Cornell | Spheres", or "None".
+     */
     std::string sceneMaskToString(const int mask) {
         std::string s;
         const auto m = static_cast<std::uint32_t>(mask);
@@ -82,16 +117,25 @@ namespace {
         return s;
     }
 
+    /// @brief Map PostFX filter index to name (0=Gaussian,1=Bilateral).
     const char *fxName(const int fxFilter) {
         return fxFilter == 0 ? "Gaussian" : "Bilateral";
     }
 
+    /// @brief Map export format index to name (0=PPM,1=PNG).
     const char *exportName(const int exportFormat) {
         return exportFormat == 1 ? "PNG" : "PPM";
     }
 
-    // --- Submenus --------------------------------------------------------------
+    // ------------------------------------------------------------------------
+    // Submenus
+    // ------------------------------------------------------------------------
 
+    /**
+     * @brief Resolution submenu: presets or manual width/height.
+     * @param rc Runtime config to edit in-place.
+     * @note Enter (blank) returns to the previous menu.
+     */
     void submenuResolution(RuntimeConfig &rc) {
         for (;;) {
             std::cout << "\n== Resolution ==\n";
@@ -135,6 +179,10 @@ namespace {
         }
     }
 
+    /**
+     * @brief Scene mask submenu: toggle Cornell / Spheres / Cubes.
+     * @param rc Runtime config to edit in-place.
+     */
     void submenuScene(RuntimeConfig &rc) {
         for (;;) {
             std::cout << "\n== Scene Setup ==\n";
@@ -156,6 +204,10 @@ namespace {
         }
     }
 
+    /**
+     * @brief Debug submenu: toggle light gizmos and (optional) normal viz.
+     * @param rc Runtime config to edit in-place.
+     */
     void submenuDebug(RuntimeConfig &rc) {
         for (;;) {
             std::cout << "\n== Debug ==\n";
@@ -172,8 +224,15 @@ namespace {
         }
     }
 
-    // --- PostFX sub-submenus -----------------------------------------------------
+    // ------------------------------------------------------------------------
+    // PostFX sub-submenus
+    // ------------------------------------------------------------------------
 
+    /**
+     * @brief Gaussian settings submenu (radius/sigma).
+     * @param rc Runtime config to edit in-place.
+     * @note Radius ∈ [1,32], sigma ≥ 0.1.
+     */
     void submenuGaussianSettings(RuntimeConfig &rc) {
         for (;;) {
             std::cout << "\n== PostFX > Gaussian Settings ==\n";
@@ -201,6 +260,11 @@ namespace {
         }
     }
 
+    /**
+     * @brief Bilateral settings submenu (radius/sigmaSpatial/sigmaRange).
+     * @param rc Runtime config to edit in-place.
+     * @note radius ∈ [1,16], sigmaSpatial ≥ 0.1, sigmaRange ≥ 0.01 (normalized if ≤ 1).
+     */
     void submenuBilateralSettings(RuntimeConfig &rc) {
         for (;;) {
             std::cout << "\n== PostFX > Bilateral Settings ==\n";
@@ -235,8 +299,14 @@ namespace {
         }
     }
 
-    // --- PostFX main submenu -----------------------------------------------------
+    // ------------------------------------------------------------------------
+    // PostFX main submenu
+    // ------------------------------------------------------------------------
 
+    /**
+     * @brief PostFX submenu: toggle master enable and pick filter, jump to settings.
+     * @param rc Runtime config to edit in-place.
+     */
     void submenuPostFX(RuntimeConfig &rc) {
         for (;;) {
             const bool gaussOn = rc.enablePostFX && (rc.fxFilter == 0);
@@ -283,6 +353,10 @@ namespace {
         }
     }
 
+    /**
+     * @brief Export settings submenu (format/preview/watermark).
+     * @param rc Runtime config to edit in-place.
+     */
     void submenuExportSettings(RuntimeConfig &rc) {
         for (;;) {
             std::cout << "\n== Export Settings ==\n";
@@ -305,6 +379,10 @@ namespace {
         }
     }
 
+    /**
+     * @brief Print the menu header summary (current config snapshot).
+     * @param rc Runtime config (read-only).
+     */
     void printHeader(const RuntimeConfig &rc) {
         std::cout << "\n==================== RayTracerMenu ====================\n";
         std::cout << " Resolution : " << rc.width << " x " << rc.height << "\n";
@@ -330,7 +408,15 @@ namespace {
     }
 } // anon
 
-// Public API used by main.cu
+// ------------------------------------------------------------------------
+// Public API
+// ------------------------------------------------------------------------
+
+/**
+ * @brief Prompt the user for a complete runtime configuration.
+ * @return Filled RuntimeConfig (values may be clamped to safe ranges).
+ * @note Blank input at the top menu starts the render with the current config.
+ */
 RuntimeConfig promptUserForConfig() {
     RuntimeConfig rc{};
     rc.width = 1280;

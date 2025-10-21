@@ -1,17 +1,22 @@
-#ifndef RENDERING_POSTFX_SETUP_CUH
-#define RENDERING_POSTFX_SETUP_CUH
+/**
+* @file postfx_setup.cuh
+ * @brief Translate RuntimeConfig (UI/runtime) into canonical PostFX::Params.
+ * @details
+ * RuntimeConfig holds UI-facing knobs; PostFX::Params is consumed by CPU/GPU
+ * pipelines. This function is the single translator between the two.
+ */
+
+#pragma once
 
 #include "rendering/postprocess.cuh"
-#include "config/config.cuh" // for RuntimeConfig
+#include "config/config.cuh" // RuntimeConfig
 
 namespace PostFX {
-    /// ---------------------------------------------------------------------------
-    /// @brief Build canonical PostFX parameters from the runtime configuration.
-    ///
-    /// RuntimeConfig holds UI/runtime-facing knobs.
-    /// PostFX::Params is the canonical form consumed by CPU/GPU pipelines.
-    /// This function is the single translator between the two.
-    /// ---------------------------------------------------------------------------
+    /**
+     * @brief Build canonical PostFX parameters from the runtime configuration.
+     * @param rc Runtime configuration (UI/runtime knobs).
+     * @return Canonical PostFX::Params used by CPU/GPU pipelines.
+     */
     inline Params makeParams(const RuntimeConfig &rc) {
         Params p{}; // start from defaults in postprocess.cuh
 
@@ -42,5 +47,3 @@ namespace PostFX {
         return p;
     }
 } // namespace PostFX
-
-#endif // RENDERING_POSTFX_SETUP_CUH

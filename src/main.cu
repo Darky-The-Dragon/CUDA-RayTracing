@@ -1,10 +1,18 @@
-///
-/// @file main.cu
-/// @brief Entry point: runs GPU + CPU renderers, saves images, prints timing.
-/// @details Uses a menu-driven runtime config. Supports PPM/PNG export, preview, watermark.
-///
+/**
+ * @file main.cu
+ * @brief Entry point: runs GPU + CPU renderers, saves images, prints timing.
+ * @details Menu-driven runtime config → build scene → run GPU kernel (primary rays)
+ *          and CPU reference path, optional post-FX (GPU/CPU), save images (PPM/PNG),
+ *          preview on Windows, print summary, and append CSV timings.
+ *
+ * Design notes:
+ *  - Keep device symbols local to this TU; host builds world and uploads once.
+ *  - Determinism checks: FNV-1a CRC persisted per (scene,res,fx,seed) key.
+ */
 
 #include <cuda_runtime.h>
+
+// STL
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -20,6 +28,7 @@
 
 namespace fs = std::filesystem;
 
+// Project
 #include "core/camera.cuh"
 #include "core/macros.cuh"              // HD/FINL + CUDA_GUARD / CUDA_CHECK_LAUNCH_AND_SYNC + debug helpers
 #include "config/config.cuh"
@@ -40,8 +49,18 @@ namespace fs = std::filesystem;
 // ============================================================================
 // Device-side constants
 // ============================================================================
+
+/**
+ * @brief Runtime debug toggles (device view).
+ * @details Updated once per run via cudaMemcpyToSymbol.
+ */
 __constant__ DebugConfig d_dbg;
 
+/**
+ * @brief Device scene buffers in constant memory.
+ * @details Raw byte arrays keep alignment stable across host/device; counts are separate.
+ * @note Align to 16 to cover Vec3/Material packing inside Quad/Sphere.
+ */
 __constant__ __align__(16) unsigned char d_quads_raw[sizeof(Quad) * MAX_QUADS];
 __constant__ int d_numQuads;
 __constant__ __align__(16) unsigned char d_spheres_raw[sizeof(Sphere) * MAX_SPHERES];
@@ -53,8 +72,13 @@ static_assert(alignof(Sphere) <= 16, "Sphere alignment > 16; bump __align__ on d
 // ============================================================================
 // Small RAII for cudaEvent_t
 // ============================================================================
+
+/**
+ * @brief Minimal RAII wrapper for cudaEvent_t.
+ * @details Creates in ctor, destroys in dtor. Non-copyable.
+ */
 struct CudaEvent {
-    cudaEvent_t ev{};
+    cudaEvent_t ev{}; ///< Underlying CUDA event handle.
     CudaEvent() { CUDA_GUARD(cudaEventCreate(&ev)); }
     ~CudaEvent() { CUDA_GUARD(cudaEventDestroy(ev)); }
 
@@ -63,12 +87,23 @@ struct CudaEvent {
     CudaEvent &operator=(const CudaEvent &) = delete;
 };
 
+/// @brief Tiny warmup kernel to pay JIT overhead before timing.
 __global__ void warmup() {
 }
 
 // ---------------------------------------------------------------------------
 // Occupancy-guided launch chooser
 // ---------------------------------------------------------------------------
+
+/**
+ * @brief Pick grid/block dims for the primary ray kernel from occupancy.
+ * @param width   Render width in pixels.
+ * @param height  Render height in pixels.
+ * @param grid    [out] Chosen grid dims.
+ * @param block   [out] Chosen block dims.
+ * @note Uses cudaOccupancyMaxPotentialBlockSize and gently shapes a 2D block
+ *       around ~16xN. Falls back to (16,16) on failure.
+ */
 static void chooseLaunchDimsRaytrace(const int width, const int height, dim3 &grid, dim3 &block) {
     int minGridSize = 0, optBlockSize = 0;
     CUDA_GUARD(cudaOccupancyMaxPotentialBlockSize(
@@ -85,7 +120,9 @@ static void chooseLaunchDimsRaytrace(const int width, const int height, dim3 &gr
         }
         block = dim3(bx, by, 1);
     }
-    grid = dim3((width + block.x - 1) / block.x, (height + block.y - 1) / block.y, 1);
+    grid = dim3((width + block.x - 1) / block.x,
+                (height + block.y - 1) / block.y,
+                1);
 
     RT_DEBUG_ONLY(std::cout
         << "[LAUNCH] Occupancy-picked block: (" << block.x << "x" << block.y << ")\n"
@@ -95,6 +132,12 @@ static void chooseLaunchDimsRaytrace(const int width, const int height, dim3 &gr
 // ---------------------------------------------------------------------------
 // Determinism cache helpers (append-only text file)
 // ---------------------------------------------------------------------------
+
+/**
+ * @brief Human label for a scene bitmask.
+ * @param mask Scene bits.
+ * @return e.g. "Cornell | Spheres", or "None".
+ */
 static std::string makeSceneLabel(int mask) {
     std::string s;
     const auto m = static_cast<std::uint32_t>(mask);
@@ -109,6 +152,16 @@ static std::string makeSceneLabel(int mask) {
     return s;
 }
 
+/**
+ * @brief Compose a determinism key for CRC caching.
+ * @param tag         "GPU", "GPU_PP", "CPU", "CPU_PP".
+ * @param w,h         Resolution in pixels.
+ * @param scene       Scene label.
+ * @param filterName  "Off", "Gaussian", "Bilateral".
+ * @param fxSettings  "OFF"/"DEFAULT"/pretty settings string.
+ * @param seed        Frame seed.
+ * @return Unique key used in the cache file.
+ */
 static std::string makeDeterminismKey(const char *tag, int w, int h,
                                       const std::string &scene,
                                       const char *filterName,
@@ -121,6 +174,13 @@ static std::string makeDeterminismKey(const char *tag, int w, int h,
     return os.str();
 }
 
+/**
+ * @brief Load the last CRC for a given key from an append-only cache file.
+ * @param cachePath Path to cache file.
+ * @param key       Determinism key.
+ * @param out       [out] Previous CRC (if found).
+ * @return true if found, false otherwise.
+ */
 static bool loadLastCRC(const fs::path &cachePath, const std::string &key, uint32_t &out) {
     std::ifstream in(cachePath);
     if (!in) return false;
@@ -143,6 +203,12 @@ static bool loadLastCRC(const fs::path &cachePath, const std::string &key, uint3
     return found;
 }
 
+/**
+ * @brief Append a new (key,CRC) line to the cache file (creates parent dir).
+ * @param cachePath Path to cache file.
+ * @param key       Determinism key.
+ * @param crc       Checksum to write.
+ */
 static void appendCRC(const fs::path &cachePath, const std::string &key, uint32_t crc) {
     fs::create_directories(cachePath.parent_path());
     std::ofstream out(cachePath, std::ios::app);
@@ -153,6 +219,12 @@ static void appendCRC(const fs::path &cachePath, const std::string &key, uint32_
 // ============================================================================
 // Main
 // ============================================================================
+
+/**
+ * @brief Program entry: gather config, run GPU+CPU, optional post-FX, save, log.
+ * @return Process exit code (0 on success).
+ * @note Uses a single non-blocking stream for all GPU work in this TU.
+ */
 int main() {
     // --- Collect runtime configuration from the user
     RuntimeConfig rc = promptUserForConfig();
@@ -193,7 +265,7 @@ int main() {
         return (subdir / (std::string(stem) + (wantPNG ? ".png" : ".ppm"))).string();
     };
 
-    // ---- Helper: strip alpha (RGBA->RGB) on host
+    // Strip alpha (RGBA->RGB) on host
     auto stripAlphaToRGB = [&](const uchar4 *src, uchar3 *dst, size_t pixels) {
         for (size_t i = 0; i < pixels; ++i) {
             const uchar4 p = src[i];
@@ -201,7 +273,7 @@ int main() {
         }
     };
 
-    // ---- Save GPU RGBA by stripping alpha; optional watermark
+    // Save GPU RGBA by stripping alpha; optional watermark
     auto save_rgba_with_optional_wm = [&](const std::string &path,
                                           const uchar4 *dataRGBA,
                                           std::string_view label) {
@@ -224,7 +296,7 @@ int main() {
         if (rc.autoOpenPreview) (void) openPreview(path);
     };
 
-    // ---- Save CPU RGB directly; optional watermark
+    // Save CPU RGB directly; optional watermark
     auto save_rgb_with_optional_wm = [&](const std::string &path,
                                          const uchar3 *data,
                                          std::string_view label) {
@@ -285,7 +357,7 @@ int main() {
     WorldBuffers W;
     buildWorld(W, rc.sceneMask);
     std::cout << "[SCENE] numQuads=" << W.numQuads
-                        << " numSpheres=" << W.numSpheres << "\n";
+            << " numSpheres=" << W.numSpheres << "\n";
     uploadSceneToDevice(W);
 
     // Upload runtime debug toggles
@@ -500,7 +572,6 @@ int main() {
 
     // ---------------- Run Summary + CSV ----------------
     {
-        // Rebuild fxSettings (already built above)
         RunStats rs{};
         rs.width = WIDTH;
         rs.height = HEIGHT;

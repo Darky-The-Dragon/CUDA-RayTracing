@@ -1,35 +1,31 @@
-// ============================================================================
-// @file config.cuh
-// @brief Centralized configuration for runtime and (legacy) render options.
-//
-// `RuntimeConfig` is built by the menu and passed to CPU/GPU paths.
-// `RenderConfig` is legacy; keep only if still referenced.
-// ============================================================================
+/**
+ * @file config.cuh
+ * @brief Centralized runtime config (and legacy render switches).
+ * @details The menu builds a RuntimeConfig and passes it to CPU/GPU paths.
+ * Keep RenderConfig only if something still references it.
+ */
 
-#ifndef CONFIG_CONFIG_CUH
-#define CONFIG_CONFIG_CUH
+#pragma once
 
 #include <cstdint> // std::uint32_t
 
-/// ------------------------------------------------------------------------
-/// @brief Runtime configuration collected from the menu.
-/// @details
-///  - Booleans are toggled with y/n in the UI.
-///  - Numeric fields are prompted with defaults + suggested ranges.
-///  - `sceneMask` is set by the menu (bitwise OR of SceneBits).
-/// ------------------------------------------------------------------------
+/**
+ * @brief Runtime configuration collected from the menu.
+ * @details
+ *  - Booleans toggle via y/n in the UI.
+ *  - Numeric fields prompt with defaults and suggested ranges.
+ *  - `sceneMask` is a bitwise OR of SceneBits (see scene_config.cuh).
+ */
 struct RuntimeConfig {
     // Seed
-    uint32_t seed = 0u; /// Default seed for all runs
+    std::uint32_t seed = 0u; ///< Default RNG seed for the run.
 
     // Resolution
     int width = 1024; ///< Output width in pixels.
     int height = 1024; ///< Output height in pixels.
 
     // Scene selection (bitmask; combine multiple scenes)
-    /// Bitmask of enabled sub-scenes (see SceneBits in scene_config.cuh).
-    /// The menu will initialize this from DEFAULT_SCENE_MASK.
-    std::uint32_t sceneMask = 0; ///< e.g., SCENE_CORNELL | SCENE_SPHERES
+    std::uint32_t sceneMask = 0; ///< Bitmask of enabled sub-scenes (e.g., SCENE_CORNELL | SCENE_SPHERES).
 
     // PostFX
     bool enablePostFX = true; ///< Enable post-processing.
@@ -50,9 +46,7 @@ struct RuntimeConfig {
     bool dbgDrawNormals = false; ///< Visualize surface normals.
 
     // Output
-    int exportFormat = 0; /// 0=PPM, 1=PNG
-    bool autoOpenPreview = false; /// open exported image with OS default app
-    bool addWatermark = false; /// put “CPU/GPU | PostFX:Gaussian/Bilateral/Off” at bottom-right
+    int exportFormat = 0; ///< 0 = PPM, 1 = PNG.
+    bool autoOpenPreview = false; ///< Open exported image with OS default app.
+    bool addWatermark = false; ///< Add “CPU/GPU | PostFX: Gaussian/Bilateral/Off” at bottom-right.
 };
-
-#endif // CONFIG_CONFIG_CUH

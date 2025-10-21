@@ -1,13 +1,19 @@
-// ============================================================================
-// @file image_io.cu
-// @brief Image save utilities (PPM/PNG), simple watermarking, and Windows preview launcher.
-//
-// @note Windows-only preview: this TU intentionally provides the `openPreview` implementation
-//       for Windows. Other platforms will trigger a compile-time error (see guard below).
-// ============================================================================
+/**
+ * @file image_io.cu
+ * @brief Image save (PPM/PNG), bitmap watermark, and Windows preview.
+ * @details
+ *  - Writes PPM (P6) or PNG (via lodepng) from RGB (uchar3).
+ *  - Adds an opaque 5×7 bitmap watermark at bottom-right.
+ *  - Opens the saved image with the OS viewer on Windows (UTF-8 safe).
+ *
+ * Design notes:
+ *  - Writers expect the parent directory to exist; I create it once in saveImage().
+ *  - Windows preview uses ShellExecuteW with UTF-8→UTF-16 conversion.
+ */
 
 #include "io/image_io.cuh"
 
+// STL
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -17,9 +23,7 @@
 #include <limits>
 #include <vector>
 
-namespace fs = std::filesystem;
-
-// At top of image_io.cu
+// Platform
 #if defined(_WIN32)
 #define RT_PREVIEW_WINDOWS 1
 #include <windows.h>
@@ -28,21 +32,21 @@ namespace fs = std::filesystem;
 #define RT_PREVIEW_WINDOWS 0
 #endif
 
-// -------------------------------------------------------------------------------------------------
-// PPM (P6)
-// -------------------------------------------------------------------------------------------------
+namespace fs = std::filesystem;
 
-/// ----------------------------------------------------------------------------
-/// @brief Save an image buffer (RGB, 8-bit) to PPM P6.
-///
-/// @param path   Output filename (directories are expected to exist; created by saveImage()).
-/// @param pixels Pointer to a contiguous array of uchar3 of size w*h.
-/// @param w      Image width in pixels.
-/// @param h      Image height in pixels.
-/// @return true on success, false otherwise.
-///
-/// @note The write count is range-checked and cast to std::streamsize to avoid narrowing warnings.
-/// ----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// PPM (P6)
+// -----------------------------------------------------------------------------
+
+/**
+ * @brief Save an image buffer (RGB, 8-bit) to PPM P6.
+ * @param path   Output filename (directories are expected to exist; created by saveImage()).
+ * @param pixels Pointer to a contiguous array of uchar3 of size w*h.
+ * @param w      Image width in pixels.
+ * @param h      Image height in pixels.
+ * @return true on success; false otherwise.
+ * @note I cast the byte count to std::streamsize to avoid narrowing warnings.
+ */
 static bool writePPM_P6(const std::string &path, const uchar3 *pixels, const int w, const int h) {
     if (!pixels || w <= 0 || h <= 0) return false;
 
@@ -51,33 +55,29 @@ static bool writePPM_P6(const std::string &path, const uchar3 *pixels, const int
 
     out << "P6\n" << w << ' ' << h << "\n255\n";
 
-    const auto total =
-            static_cast<size_t>(w) * static_cast<size_t>(h) * sizeof(uchar3);
-    if (total > static_cast<size_t>(std::numeric_limits<std::streamsize>::max()))
-        return false;
+    const auto total = static_cast<size_t>(w) * static_cast<size_t>(h) * sizeof(uchar3);
+    if (total > static_cast<size_t>(std::numeric_limits<std::streamsize>::max())) return false;
 
     const auto count = static_cast<std::streamsize>(total);
     out.write(reinterpret_cast<const char *>(pixels), count);
     return static_cast<bool>(out);
 }
 
-// -------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // PNG (lodepng) — encode directly from RGB (no RGBA staging)
-// -------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #if !defined(NO_PNG)
-#  include "third_party/lodepng/lodepng.h"
+#include "third_party/lodepng/lodepng.h"
 
-/// ----------------------------------------------------------------------------
-/// @brief Save an image buffer (RGB, 8-bit) to PNG via lodepng.
-///
-/// @param path   Output filename (directories are expected to exist; created by saveImage()).
-/// @param pixels Pointer to a contiguous array of uchar3 of size w*h.
-/// @param w      Image width in pixels.
-/// @param h      Image height in pixels.
-/// @return true on success, false otherwise.
-///
-/// @note Encodes directly from RGB; no temporary RGBA buffer is created.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Save an image buffer (RGB, 8-bit) to PNG via lodepng.
+ * @param path   Output filename (directories are expected to exist; created by saveImage()).
+ * @param pixels Pointer to a contiguous array of uchar3 of size w*h.
+ * @param w      Image width in pixels.
+ * @param h      Image height in pixels.
+ * @return true on success; false otherwise.
+ * @note Encodes directly from RGB; I avoid a temporary RGBA buffer.
+ */
 static bool writePNG(const std::string &path, const uchar3 *pixels, int w, int h) {
     if (!pixels || w <= 0 || h <= 0) return false;
 
@@ -89,28 +89,24 @@ static bool writePNG(const std::string &path, const uchar3 *pixels, int w, int h
     return err == 0;
 }
 #else
-/// ----------------------------------------------------------------------------
 /// @brief Disabled PNG writer stub when NO_PNG is defined.
-/// ----------------------------------------------------------------------------
 static bool writePNG(const std::string &, const uchar3 *, int, int) { return false; }
 #endif
 
-/// ----------------------------------------------------------------------------
-/// @brief Front door for image saving (PPM / PNG). Creates parent directories once.
-///
-/// @param path   Output filename (extension is not required but recommended).
-/// @param pixels Pointer to a contiguous array of uchar3 of size w*h.
-/// @param w      Image width in pixels.
-/// @param h      Image height in pixels.
-/// @param fmt    Export format (PPM or PNG).
-/// @return true on success, false otherwise.
-///
-/// @note Parent directories are created here; writers do not attempt directory creation.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Save image (PPM/PNG). Creates parent directories once.
+ * @param path   Output filename (extension is optional).
+ * @param pixels Pointer to a contiguous array of uchar3 of size w*h.
+ * @param w      Image width in pixels.
+ * @param h      Image height in pixels.
+ * @param fmt    Export format (PPM or PNG).
+ * @return true on success; false otherwise.
+ * @note I create parent directories here; the writers only write.
+ */
 bool saveImage(const std::string &path, const uchar3 *pixels, const int w, const int h, const ExportFormat fmt) {
     if (!pixels || w <= 0 || h <= 0 || path.empty()) return false;
 
-    // Create output directory once here (writers don't repeat it)
+    // Create output directory once here (writers don’t repeat it).
     std::error_code ec;
     fs::create_directories(fs::path(path).parent_path(), ec);
 
@@ -121,15 +117,14 @@ bool saveImage(const std::string &path, const uchar3 *pixels, const int w, const
     }
 }
 
-// -------------------------------------------------------------------------------------------------
-// Watermark (5x7 uppercase bitmap font)
-// -------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Watermark (5×7 uppercase bitmap font)
+// -----------------------------------------------------------------------------
 
-/// ----------------------------------------------------------------------------
-/// @brief Compact 5x7 bitmap glyph (one byte per row; low 5 bits used).
-///
-/// @note The glyph table below covers uppercase A–Z, digits 0–9, space, '|' and ':'.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Compact 5×7 bitmap glyph (one byte per row; low 5 bits used).
+ * @note The table covers A–Z, 0–9, space, '|', ':'.
+ */
 struct Glyph {
     uint8_t rows[7];
 };
@@ -172,11 +167,11 @@ constexpr Glyph GLYPH_Z {{0b11111,0b00001,0b00010,0b00100,0b01000,0b10000,0b1111
 // clang-format on
 
 namespace {
-    /// ----------------------------------------------------------------------------
-    /// @brief Lookup glyph for a single character.
-    /// @param c Uppercase character supported by the 5x7 table (others map to space).
-    /// @return Pointer to the corresponding glyph data.
-    /// ----------------------------------------------------------------------------
+    /**
+     * @brief Lookup glyph for a single character.
+     * @param c Uppercase character supported by the 5×7 table (others map to space).
+     * @return Pointer to the glyph.
+     */
     inline const Glyph *glyphFor(const char c) {
         switch (c) {
             case ' ': return &GLYPH_SPACE;
@@ -215,53 +210,52 @@ namespace {
         }
     }
 
-    /// ----------------------------------------------------------------------------
-    /// @brief Write a single pixel with bounds checks (branchless via unsigned compare).
-    ///
-    /// @param img Target image buffer.
-    /// @param w   Image width.
-    /// @param h   Image height.
-    /// @param x   Pixel x (0..w-1).
-    /// @param y   Pixel y (0..h-1).
-    /// @param c   RGB color to write.
-    /// @note Negative x/y are rejected by the unsigned comparison.
-    /// ----------------------------------------------------------------------------
-    inline void putPixel(std::vector<uchar3> &img, const int w, const int h, const int x, const int y, const uchar3 c) {
+    /**
+     * @brief Write one pixel with bounds checks (branchless via unsigned compare).
+     * @param img Target image buffer.
+     * @param w   Image width.
+     * @param h   Image height.
+     * @param x   Pixel x (0..w-1).
+     * @param y   Pixel y (0..h-1).
+     * @param c   RGB color to write.
+     * @note Negative x/y are rejected by the unsigned comparison.
+     */
+    inline void putPixel(std::vector<uchar3> &img, const int w, const int h,
+                         const int x, const int y, const uchar3 c) {
         if (static_cast<unsigned>(x) >= static_cast<unsigned>(w) ||
             static_cast<unsigned>(y) >= static_cast<unsigned>(h))
             return;
         img[static_cast<size_t>(y) * w + static_cast<size_t>(x)] = c;
     }
 
-    /// ----------------------------------------------------------------------------
-    /// @brief Fast integer darken ≈ value * 0.3 (77/256).
-    /// @param v Input 0..255.
-    /// @return Darkened value.
-    /// ----------------------------------------------------------------------------
+    /**
+     * @brief Fast integer darken ≈ value * 0.3 (77/256).
+     * @param v Input 0..255.
+     * @return Darkened value.
+     */
     inline unsigned char darken30(const unsigned char v) {
         return static_cast<unsigned char>((static_cast<unsigned>(v) * 77u) >> 8);
     }
 } // anonymous namespace
 
-/// ----------------------------------------------------------------------------
-/// @brief Draw an uppercase watermark string in the bottom-right corner, using a 5x7 bitmap font.
-///
-/// @param img    Image buffer (modified in place).
-/// @param w      Image width.
-/// @param h      Image height.
-/// @param textIn Watermark text (will be uppercased; unsupported chars render as spaces).
-/// @note Draws a darkened rectangle backdrop for legibility, then blits white glyphs.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Draw an uppercase watermark in the bottom-right, 5×7 bitmap font.
+ * @param img    Image buffer (modified in place).
+ * @param w      Image width.
+ * @param h      Image height.
+ * @param textIn Watermark text; I uppercase it; unsupported chars render as spaces.
+ * @note Draws a darkened rectangle backdrop for legibility, then blits opaque white glyphs.
+ */
 void addWatermarkInPlace(std::vector<uchar3> &img, const int w, const int h, const std::string &textIn) {
     if (textIn.empty() || w <= 0 || h <= 0) return;
 
-    // Uppercase to fit glyph set
+    // Uppercase to fit glyph set.
     std::string text;
     text.reserve(textIn.size());
     for (const char c: textIn)
         text.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
 
-    // Glyph metrics (5x7 + 1px spacing). Add a small pad around the label.
+    // Glyph metrics (5×7 + 1px spacing). Add a small pad around the label.
     constexpr int gw = 5, gh = 7, gap = 1;
     constexpr int margin = 6;
     const int text_w = static_cast<int>(text.size()) * (gw + gap) - gap;
@@ -272,7 +266,7 @@ void addWatermarkInPlace(std::vector<uchar3> &img, const int w, const int h, con
     x0 = std::max(0, x0);
     y0 = std::max(0, y0);
 
-    // Darken backdrop rectangle for legibility (expand by 2px).
+    // Darken backdrop rectangle (expand by 2 px).
     const int bx0 = std::max(0, x0 - 2);
     const int by0 = std::max(0, y0 - 2);
     const int bx1 = std::min(w - 1, x0 + text_w + 2);
@@ -287,7 +281,7 @@ void addWatermarkInPlace(std::vector<uchar3> &img, const int w, const int h, con
         }
     }
 
-    // Draw glyphs in opaque white
+    // Draw glyphs in opaque white.
     int penX = x0;
     for (const char c: text) {
         const Glyph *g = glyphFor(c);
@@ -303,34 +297,47 @@ void addWatermarkInPlace(std::vector<uchar3> &img, const int w, const int h, con
     }
 }
 
-// -------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Preview launcher (Windows-only)
-// -------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 #if !defined(_WIN32)
-#  error "This preview feature targets Windows only."
+#error "This preview feature targets Windows only."
 #endif
 
-#include <windows.h>
-
 namespace {
-    /// ----------------------------------------------------------------------------
-    /// @brief Convert a path to an absolute string, best-effort (swallows exceptions).
-    /// @param p Input path (possibly relative).
-    /// @return Absolute path string if possible, otherwise the input.
-    /// ----------------------------------------------------------------------------
-    inline std::string toAbsolute(const std::string &p) {
+    /**
+     * @brief Convert a UTF-8 path to an absolute UTF-16 string (best effort).
+     * @param p Input UTF-8 path (possibly relative).
+     * @return Absolute wide path (UTF-16) if possible; otherwise lossy-widened bytes.
+     */
+    inline std::wstring toAbsoluteWide(const std::string &p) {
+        // Absolutize (swallow exceptions).
+        std::string abs;
         try {
-            return fs::absolute(p).string();
+            abs = fs::absolute(p).string();
         } catch (...) {
-            return p;
+            abs = p;
         }
+
+        if (abs.empty()) return {};
+        const int need = ::MultiByteToWideChar(CP_UTF8, 0, abs.c_str(),
+                                               static_cast<int>(abs.size()), nullptr, 0);
+        if (need <= 0) {
+            // Fallback: ASCII-safe widening.
+            return {abs.begin(), abs.end()};
+        }
+        std::wstring out;
+        out.resize(static_cast<size_t>(need));
+        ::MultiByteToWideChar(CP_UTF8, 0, abs.c_str(),
+                              static_cast<int>(abs.size()), out.data(), need);
+        return out;
     }
 
-    /// ----------------------------------------------------------------------------
-    /// @brief Translate ShellExecuteW error codes (<= 32) to short text.
-    /// @param c Return code from ShellExecuteW cast to intptr_t.
-    /// @return Static C-string with the decoded reason.
-    /// ----------------------------------------------------------------------------
+    /**
+     * @brief Translate ShellExecuteW error codes (<= 32) to short text.
+     * @param c Return code from ShellExecuteW cast to intptr_t.
+     * @return Static C-string with the decoded reason.
+     */
     inline const char *shellCodeMeaning(const intptr_t c) {
         switch (c) {
             case 0: return "Out of memory or resources";
@@ -349,29 +356,31 @@ namespace {
     }
 } // anonymous namespace
 
-/// ----------------------------------------------------------------------------
-/// @brief Open a saved image with the OS default viewer (Windows).
-///
-/// @param path Path to an existing file on disk.
-/// @return true if the OS accepted the open request, false otherwise.
-///
-/// @note Uses ShellExecuteW (wide) to support Unicode paths and prints a concise error on failure.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Open a saved image with the OS default viewer (Windows).
+ * @param path Path to an existing file on disk (UTF-8).
+ * @return true if the OS accepted the open request; false otherwise.
+ * @note Uses ShellExecuteW with UTF-8→UTF-16 conversion and prints a concise error on failure.
+ */
 bool openPreview(const std::string &path) {
     if (!fs::exists(fs::path(path))) {
         std::cerr << "[PREVIEW] File does not exist: " << path << "\n";
         return false;
     }
-    const std::string abs = toAbsolute(path);
-    const std::wstring wabs(abs.begin(), abs.end());
+
+    const std::wstring wabs = toAbsoluteWide(path);
+
 #if RT_PREVIEW_WINDOWS
-    HINSTANCE r = ShellExecuteW(nullptr, L"open", wabs.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    HINSTANCE r = ::ShellExecuteW(nullptr, L"open", wabs.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     if (const auto code = reinterpret_cast<intptr_t>(r); code <= 32) {
+        std::string abs;
+        try { abs = fs::absolute(path).string(); } catch (...) { abs = path; }
         std::cerr << "[PREVIEW] ShellExecuteW failed (code=" << code
                 << "): " << shellCodeMeaning(code) << " | Path: " << abs << "\n";
         return false;
-#endif
     }
-    std::cout << "[PREVIEW] Opened: " << abs << "\n";
+#endif
+
+    std::cout << "[PREVIEW] Opened: " << path << "\n";
     return true;
 }

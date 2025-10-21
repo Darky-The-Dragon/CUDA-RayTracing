@@ -1,33 +1,30 @@
-// ============================================================================
-// @file postprocess.cu
-// @brief CPU & GPU image post-processing (Gaussian blur, Bilateral filter).
-//
-// This translation unit implements small, deterministic post-FX passes that
-// run after the raytracing stage. Both CPU and GPU code paths are provided
-// to keep feature parity and enable apples-to-apples comparisons.
-//
-// Implemented filters (uchar3 RGB, in-place or device buffer):
-//   - Separable Gaussian blur
-//   - Edge-preserving Bilateral filter (luma-guided)
-//
-// Design goals:
-//   - Readable, parameterized code (no magic numbers).
-//   - Identical math on CPU/GPU (matching results).
-//   - CUDA-friendly kernels with constant memory lookup tables.
-// ============================================================================
+/**
+ * @file postprocess.cu
+ * @brief CPU & GPU post-processing (Gaussian blur, Bilateral filter).
+ * @details Small, deterministic post-FX passes that run after raytracing.
+ * Implements:
+ *  - Separable Gaussian blur (uchar3/uchar4)
+ *  - Luma-guided Bilateral filter
+ *
+ * Design notes:
+ *  - I keep math identical across CPU/GPU to compare results 1:1.
+ *  - Gaussian weights live in __constant__; bilateral uses constant tables.
+ */
 
 #include "core/macros.cuh"
 #include "core/numerics.cuh"
 #include "rendering/postprocess.cuh"
+
 #include <chrono>
 #include <cmath>
 #include <vector>
 
 // ============================================================================
-// Shared helpers & constants (TU-local)
+// TU-local helpers & constants
 // ============================================================================
 namespace {
-    constexpr float kU8Max = 255.0f;
+    // Constants (units noted inline)
+    constexpr float kU8Max = 255.0f; // clamp for pack
     constexpr int kU8Range = 256; // 0..255 inclusive
     constexpr float kSmallEps = 1e-8f;
 
@@ -45,10 +42,13 @@ namespace {
     constexpr int kGaussianMaxRadius = 31; // (2R+1) <= 63
     constexpr int kSpatialMaxRadius = 32; // (2R+1) <= 65
 
-    /// ------------------------------------------------------------------------
-    /// @brief Pack three floats into an 8-bit RGB pixel with rounding & clamp.
-    /// @return uchar3 with values clamped to [0, 255] and rounded.
-    /// ------------------------------------------------------------------------
+    /**
+     * @brief Pack three linear floats to 8-bit RGB with clamp+round.
+     * @param r Red in [0,255] (not normalized).
+     * @param g Green in [0,255].
+     * @param b Blue in [0,255].
+     * @return uchar3 {r,g,b}.
+     */
     inline uchar3 packRGB_u8(const float r, const float g, const float b) {
         auto toU8 = [](const float x) -> unsigned char {
             const float clamped = (x < 0.0f) ? 0.0f : (x > kU8Max ? kU8Max : x);
@@ -57,9 +57,11 @@ namespace {
         return make_uchar3(toU8(r), toU8(g), toU8(b));
     }
 
-    /// ------------------------------------------------------------------------
-    /// @brief Compute integer luma (0..255) using BT.601-like weights.
-    /// ------------------------------------------------------------------------
+    /**
+     * @brief Integer luma (0..255) using BT.601-like weights.
+     * @param c RGB pixel (8-bit).
+     * @return Luma in 0..255.
+     */
     HD FINL int luma_u8(const uchar3 c) {
         return (kLumaR * c.x + kLumaG * c.y + kLumaB * c.z) >> kLumaShift;
     }
@@ -69,7 +71,12 @@ namespace {
 // CPU IMPLEMENTATION
 // ============================================================================
 namespace {
-    /// Build a normalized 1D Gaussian kernel of size (2*radius+1).
+    /**
+     * @brief Build a normalized 1D Gaussian kernel.
+     * @param radius Half-width in pixels (0 → delta).
+     * @param sigma  Standard deviation in pixels (> 0 for a real blur).
+     * @return (2*radius+1) weights that sum to 1.
+     */
     std::vector<float> makeGaussian1D(const int radius, const float sigma) {
         const int size = 2 * radius + 1;
         std::vector<float> kernel(size > 0 ? static_cast<size_t>(size) : size_t{1}, 0.0f);
@@ -95,7 +102,15 @@ namespace {
         return kernel;
     }
 
-    /// Apply separable Gaussian blur to an RGB image (in-place).
+    /**
+     * @brief Apply separable Gaussian blur (CPU, in-place).
+     * @param image  [in/out] uchar3 image, row-major.
+     * @param width  Pixels.
+     * @param height Pixels.
+     * @param radius Kernel half-width.
+     * @param sigma  Standard deviation in pixels.
+     * @note Edge handling is clamp-to-edge. Uses one scratch buffer.
+     */
     void cpuGaussianRGB(uchar3 *image, const int width, const int height,
                         const int radius, const float sigma) {
         if (!image || width <= 0 || height <= 0) return;
@@ -139,7 +154,16 @@ namespace {
         }
     }
 
-    /// Apply bilateral filter to an RGB image (in-place, luma-guided).
+    /**
+     * @brief Apply luma-guided bilateral filter (CPU, in-place).
+     * @param image         [in/out] uchar3 image.
+     * @param width         Pixels.
+     * @param height        Pixels.
+     * @param radius        Window radius in pixels.
+     * @param sigmaSpatial  Spatial sigma in pixels.
+     * @param sigmaRange    Luma sigma; if <= 1 I treat it as normalized [0..1] and scale by 255.
+     * @note I snapshot the source to avoid feedback within the window.
+     */
     void cpuBilateralRGB(uchar3 *image, const int width, const int height,
                          const int radius, const float sigmaSpatial, const float sigmaRange) {
         if (!image || width <= 0 || height <= 0) return;
@@ -147,7 +171,7 @@ namespace {
         // Snapshot source to avoid feedback within the window
         const std::vector src(image, image + static_cast<size_t>(width) * static_cast<size_t>(height));
 
-        // Spatial weights ( (2R+1)² table )
+        // Spatial weights ((2R+1)^2 table)
         const int ksize = 2 * radius + 1;
         std::vector spatial(static_cast<size_t>(ksize) * static_cast<size_t>(ksize), 1.0f);
         if (radius > 0 && sigmaSpatial > 0.0f) {
@@ -161,11 +185,8 @@ namespace {
             }
         }
 
-        // Range LUT for luma deltas 0..255; parameter is normalized (0..1) or absolute (>=1)
+        // Range LUT for luma deltas 0..255; <=1 means normalized input
         float range[kU8Range];
-
-        // Accept both: if <= 1 treat as normalized (scale to 0..255), else assume absolute luma units
-
         if (const float sigmaR = (sigmaRange <= 1.0f) ? (sigmaRange * 255.0f) : sigmaRange; sigmaR > 0.0f) {
             const float invTwoSigmaR2 = 1.0f / (2.0f * sigmaR * sigmaR);
             for (int d = 0; d < kU8Range; ++d) {
@@ -211,6 +232,14 @@ namespace {
     }
 } // namespace
 
+/**
+ * @brief Run post-FX on CPU and (optionally) time it.
+ * @param h_img   [in/out] Host buffer (uchar3).
+ * @param width   Pixels.
+ * @param height  Pixels.
+ * @param p       Post-FX params (filter + knobs).
+ * @param t       Optional timings out (milliseconds).
+ */
 void PostFX::applyCPU(uchar3 *h_img, const int width, const int height,
                       const Params &p, Timings *t) {
     const auto t0 = std::chrono::high_resolution_clock::now();
@@ -237,12 +266,17 @@ void PostFX::applyCPU(uchar3 *h_img, const int width, const int height,
 // GPU IMPLEMENTATION
 // ============================================================================
 
-/// Constant memory for Gaussian kernel (max 2*31+1 = 63 weights).
+/** @brief Gaussian kernel weights in __constant__ (max 2*31+1 = 63). */
 __constant__ float cGaussian[2 * kGaussianMaxRadius + 1];
 static int gGaussianRadius = 0;
 static int gGaussianSize = 1;
 
-/// Upload a normalized 1D Gaussian kernel to constant memory.
+/**
+ * @brief Upload normalized 1D Gaussian to __constant__ memory.
+ * @param radius Half-width (clamped to kGaussianMaxRadius).
+ * @param sigma  Standard deviation in pixels.
+ * @note Updates `gGaussianRadius/gGaussianSize` for kernels.
+ */
 static void uploadGaussianKernel(const int radius, const float sigma) {
     gGaussianRadius = (radius < 0) ? 0 : (radius > kGaussianMaxRadius ? kGaussianMaxRadius : radius);
     gGaussianSize = 2 * gGaussianRadius + 1;
@@ -266,9 +300,18 @@ static void uploadGaussianKernel(const int radius, const float sigma) {
         0, cudaMemcpyHostToDevice));
 }
 
-/// Horizontal 1D Gaussian pass (device).
-__global__ void kGaussianH(const uchar4 * __restrict__ in, uchar4 * __restrict__ out, const int width, const int height,
-                           const int radius) {
+/**
+ * @brief Horizontal 1D Gaussian pass.
+ * @param in     Read-only input (uchar4 RGBA; RGB used, A preserved).
+ * @param out    Output (uchar4).
+ * @param width  Pixels.
+ * @param height Pixels.
+ * @param radius Half-width (uses `cGaussian` weights).
+ * @note Grid: ceil(width/16) x ceil(height/16), Block: 16x16 (defaults).
+ *       Edges clamp. Uses __constant__ kernel.
+ */
+__global__ void kGaussianH(const uchar4 * __restrict__ in, uchar4 * __restrict__ out,
+                           const int width, const int height, const int radius) {
     const int x = static_cast<int>(blockIdx.x) * static_cast<int>(blockDim.x) + static_cast<int>(threadIdx.x);
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
     if (x >= width || y >= height) return;
@@ -292,9 +335,17 @@ __global__ void kGaussianH(const uchar4 * __restrict__ in, uchar4 * __restrict__
     );
 }
 
-/// Vertical 1D Gaussian pass (device).
-__global__ void kGaussianV(const uchar4 * __restrict__ in, uchar4 * __restrict__ out, const int width, const int height,
-                           const int radius) {
+/**
+ * @brief Vertical 1D Gaussian pass.
+ * @param in     Read-only input (uchar4 RGBA).
+ * @param out    Output (uchar4).
+ * @param width  Pixels.
+ * @param height Pixels.
+ * @param radius Half-width (uses `cGaussian` weights).
+ * @note Same launch config as the horizontal pass.
+ */
+__global__ void kGaussianV(const uchar4 * __restrict__ in, uchar4 * __restrict__ out,
+                           const int width, const int height, const int radius) {
     const int x = static_cast<int>(blockIdx.x) * static_cast<int>(blockDim.x) + static_cast<int>(threadIdx.x);
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
     if (x >= width || y >= height) return;
@@ -318,13 +369,19 @@ __global__ void kGaussianV(const uchar4 * __restrict__ in, uchar4 * __restrict__
     );
 }
 
-/// Constant memory for bilateral filter tables.
+/** @brief Bilateral spatial table and range LUT in __constant__. */
 __constant__ float cSpatial[(2 * kSpatialMaxRadius + 1) * (2 * kSpatialMaxRadius + 1)];
 __constant__ float cRange[kU8Range];
 static int gSpatialRadius = 0;
 static int gSpatialSize = 1;
 
-/// Upload bilateral spatial table and range LUT to constant memory.
+/**
+ * @brief Upload bilateral spatial table and range LUT to __constant__ memory.
+ * @param radius       Window radius (clamped to kSpatialMaxRadius).
+ * @param sigmaSpatial Spatial sigma in pixels.
+ * @param sigmaRange   Luma sigma; if <= 1 I treat it as normalized [0..1].
+ * @note Spatial table size is (2R+1)^2; range LUT is 256 entries for |Δluma|.
+ */
 static void uploadBilateralTables(const int radius, const float sigmaSpatial, const float sigmaRange) {
     gSpatialRadius = (radius < 0) ? 0 : (radius > kSpatialMaxRadius ? kSpatialMaxRadius : radius);
     gSpatialSize = 2 * gSpatialRadius + 1;
@@ -347,7 +404,6 @@ static void uploadBilateralTables(const int radius, const float sigmaSpatial, co
 
     // Range (0..255); parameter is normalized (0..1) or absolute (>=1)
     float range[kU8Range];
-
     if (const float sigmaR = (sigmaRange <= 1.0f) ? (sigmaRange * 255.0f) : sigmaRange; sigmaR > 0.0f) {
         const float invTwoSigmaR2 = 1.0f / (2.0f * sigmaR * sigmaR);
         for (int d = 0; d < kU8Range; ++d) {
@@ -360,9 +416,19 @@ static void uploadBilateralTables(const int radius, const float sigmaSpatial, co
     CUDA_GUARD(cudaMemcpyToSymbol(cRange, range, sizeof(float) * kU8Range, 0, cudaMemcpyHostToDevice));
 }
 
-/// Naive bilateral filter kernel (single pass, luma-guided).
-__global__ void kBilateralNaive(const uchar4 * __restrict__ in, uchar4 * __restrict__ out, const int width,
-                                const int height, const int radius, const int ksize) {
+/**
+ * @brief Naive bilateral filter (single pass, luma-guided).
+ * @param in     Read-only input (uchar4; A preserved).
+ * @param out    Output (uchar4).
+ * @param width  Pixels.
+ * @param height Pixels.
+ * @param radius Window radius (uses `cSpatial`).
+ * @param ksize  = 2*radius+1 (cached constant for indexing).
+ * @note Grid: ceil(width/16) x ceil(height/16), Block: 16x16.
+ *       Spatial table is __constant__ (flattened). Range LUT on luma Δ.
+ */
+__global__ void kBilateralNaive(const uchar4 * __restrict__ in, uchar4 * __restrict__ out,
+                                const int width, const int height, const int radius, const int ksize) {
     const int x = static_cast<int>(blockIdx.x) * static_cast<int>(blockDim.x) + static_cast<int>(threadIdx.x);
     const int y = static_cast<int>(blockIdx.y) * static_cast<int>(blockDim.y) + static_cast<int>(threadIdx.y);
     if (x >= width || y >= height) return;
@@ -405,6 +471,17 @@ __global__ void kBilateralNaive(const uchar4 * __restrict__ in, uchar4 * __restr
     }
 }
 
+/**
+ * @brief Run post-FX on the GPU and (optionally) time it.
+ * @param d_img  [in/out] Device buffer (uchar4 RGBA); kernels preserve A.
+ * @param width  Pixels.
+ * @param height Pixels.
+ * @param p      Post-FX params (filter + knobs).
+ * @param t      Optional timings out (milliseconds, cudaEvent based).
+ * @param stream CUDA stream (default nullptr).
+ * @note Gaussian: two passes with a temp buffer; bilateral: single pass then swap.
+ *       I allocate/free d_tmp with cudaMallocAsync/cudaFreeAsync on the stream.
+ */
 void PostFX::applyGPU(uchar4 *&d_img, const int width, const int height, const Params &p, Timings *t,
                       cudaStream_t stream) {
     if (p.filter == Filter::None) {
@@ -428,8 +505,8 @@ void PostFX::applyGPU(uchar4 *&d_img, const int width, const int height, const P
         uploadGaussianKernel(radius, p.gaussianSigma);
 
         uchar4 *d_tmp = nullptr;
-        CUDA_GUARD(
-            cudaMallocAsync(&d_tmp, static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar4), stream));
+        CUDA_GUARD(cudaMallocAsync(&d_tmp,
+            static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(uchar4), stream));
 
         kGaussianH<<<grid, block, 0, stream>>>(d_img, d_tmp, width, height, gGaussianRadius);
         CUDA_GUARD(cudaGetLastError());
