@@ -81,12 +81,6 @@ GpuInfo queryGpuInfo() {
     return gi;
 }
 
-/**
- * @brief Print a concise run summary (device, grid/block, timings).
- * @param gi GPU device info.
- * @param rs Run statistics bundle (geometry, timings, labels).
- * @note Shows MPix/s for CPU/GPU and logical GB/s for PostFX when enabled.
- */
 void printRunSummary(const GpuInfo &gi, const RunStats &rs) {
     const double mpix = static_cast<double>(rs.pixels) / 1e6;
     const double gpuMPixPerS = (rs.gpuPrimaryMs > 0.0) ? (mpix / (rs.gpuPrimaryMs / 1e3)) : 0.0;
@@ -132,16 +126,6 @@ void printRunSummary(const GpuInfo &gi, const RunStats &rs) {
     std::cout << "=====================================================\n";
 }
 
-/**
- * @brief Append a CSV row with timings and run context.
- * @param outDir Output directory (the function creates `<outDir>/logs` if missing).
- * @param gi     GPU device info snapshot.
- * @param rs     Run statistics bundle.
- * @note
- *  - Adds a header only when creating the file.
- *  - Keeps new columns append-only to preserve old parsers.
- *  - Uses decimal GB (1e9) for bandwidth fields.
- */
 void appendTimingsCSV(const std::string &outDir, const GpuInfo &gi, const RunStats &rs) {
     // Ensure logs dir exists
     const fs::path csvPath = fs::path(outDir) / "logs" / "timings.csv";

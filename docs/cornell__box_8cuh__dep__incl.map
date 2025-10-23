@@ -1,0 +1,11 @@
+<map id="cornell_box.cuh" name="cornell_box.cuh">
+<area shape="rect" id="Node000001" title="Cornell box scene builder (5 walls + ground plane)." alt="" coords="151,5,263,32"/>
+<area shape="rect" id="Node000002" href="$world__build_8cuh.html" title="Centralized scene assembly for CPU &amp; GPU renderers (host&#45;only)." alt="" coords="152,80,263,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="210,48,210,80,204,80,204,48"/>
+<area shape="rect" id="Node000003" href="$cpu__raytracer_8cu.html" title="CPU reference renderer: matches GPU scene/light/shader for visual parity." alt="" coords="5,155,124,181"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="170,116,91,156,88,152,168,112"/>
+<area shape="rect" id="Node000004" href="$device__scene_8cu.html" title="Upload scene buffers and debug flags to device constant memory." alt="" coords="148,155,267,181"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="210,122,210,154,204,154,204,122"/>
+<area shape="rect" id="Node000005" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="291,155,358,181"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="242,113,305,152,303,156,239,117"/>
+</map>

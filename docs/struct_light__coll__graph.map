@@ -1,0 +1,5 @@
+<map id="Light" name="Light">
+<area shape="rect" id="Node000001" title="Light source parameters (world space)." alt="" coords="6,125,55,152"/>
+<area shape="rect" id="Node000002" href="$struct_vec3.html" title="Basic 3D vector." alt="" coords="5,5,56,32"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="33,48,33,125,28,125,28,48"/>
+</map>

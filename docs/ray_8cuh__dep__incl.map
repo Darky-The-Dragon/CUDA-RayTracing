@@ -1,0 +1,46 @@
+<map id="ray.cuh" name="ray.cuh">
+<area shape="rect" id="Node000001" title="Mathematical ray type for 3D space." alt="" coords="521,5,584,32"/>
+<area shape="rect" id="Node000002" href="$camera_8cuh.html" title="Camera definition and primary ray generation." alt="" coords="396,155,485,181"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="536,46,452,156,448,153,532,43"/>
+<area shape="rect" id="Node000007" href="$debug__utils_8cuh.html" title="Lightweight debug gizmos for visualizing light position and direction." alt="" coords="662,229,774,256"/>
+<area shape="poly" id="edge8_Node000001_Node000007" title=" " alt="" coords="573,43,711,227,707,231,569,46"/>
+<area shape="rect" id="Node000008" href="$plane_8cuh.html" title="Infinite plane primitive for ray tracing." alt="" coords="670,80,747,107"/>
+<area shape="poly" id="edge11_Node000001_Node000008" title=" " alt="" coords="595,36,683,77,680,82,592,41"/>
+<area shape="rect" id="Node000009" href="$quad_8cuh.html" title="Quad primitive for ray tracing." alt="" coords="233,80,307,107"/>
+<area shape="poly" id="edge12_Node000001_Node000009" title=" " alt="" coords="507,34,308,85,307,80,506,29"/>
+<area shape="rect" id="Node000015" href="$shader_8cuh.html" title="Compact shading utilities for CPU &amp; GPU." alt="" coords="510,155,595,181"/>
+<area shape="poly" id="edge29_Node000001_Node000015" title=" " alt="" coords="555,48,555,154,550,154,550,48"/>
+<area shape="rect" id="Node000003" href="$cpu__raytracer_8cu.html" title="CPU reference renderer: matches GPU scene/light/shader for visual parity." alt="" coords="554,304,672,331"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="468,189,600,301,596,306,465,193"/>
+<area shape="rect" id="Node000004" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="220,304,288,331"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="399,190,365,209,332,231,293,270,265,305,261,302,289,266,328,227,362,204,397,186"/>
+<area shape="rect" id="Node000005" href="$raytrace_8cuh.html" title="GPU ray tracing kernel entry point (primary rays)." alt="" coords="342,229,435,256"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="425,196,400,230,396,227,421,193"/>
+<area shape="rect" id="Node000006" href="$raytracer_8cu.html" title="GPU primary&#45;ray kernel: shade one pixel per thread and write RGB." alt="" coords="428,304,518,331"/>
+<area shape="poly" id="edge7_Node000002_Node000006" title=" " alt="" coords="449,196,473,303,467,304,444,197"/>
+<area shape="poly" id="edge5_Node000005_Node000004" title=" " alt="" coords="354,266,279,306,277,301,351,261"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="417,264,460,302,457,306,413,269"/>
+<area shape="poly" id="edge9_Node000007_Node000003" title=" " alt="" coords="689,267,633,306,630,301,686,263"/>
+<area shape="poly" id="edge10_Node000007_Node000006" title=" " alt="" coords="662,263,517,306,515,301,660,258"/>
+<area shape="rect" id="Node000010" href="$basic__boxes_8cuh.html" title="Helpers to append axis&#45;aligned / yaw&#45;rotated boxes as 6 quads." alt="" coords="24,155,143,181"/>
+<area shape="poly" id="edge13_Node000009_Node000010" title=" " alt="" coords="225,115,117,157,115,152,223,110"/>
+<area shape="rect" id="Node000011" href="$world__build_8cuh.html" title="Centralized scene assembly for CPU &amp; GPU renderers (host&#45;only)." alt="" coords="6,229,118,256"/>
+<area shape="poly" id="edge28_Node000009_Node000011" title=" " alt="" coords="218,102,160,109,99,120,46,136,26,146,14,156,9,165,8,174,16,193,30,211,47,227,44,231,27,215,11,196,3,174,4,163,9,153,23,141,44,131,98,115,160,104,217,97"/>
+<area shape="rect" id="Node000013" href="$cornell__box_8cuh.html" title="Cornell box scene builder (5 walls + ground plane)." alt="" coords="167,155,280,181"/>
+<area shape="poly" id="edge18_Node000009_Node000013" title=" " alt="" coords="256,121,234,156,229,153,252,118"/>
+<area shape="rect" id="Node000014" href="$device__scene_8cuh.html" title="GPU scene buffers in constant memory + lightweight accessor." alt="" coords="142,229,268,256"/>
+<area shape="poly" id="edge20_Node000009_Node000014" title=" " alt="" coords="288,120,298,150,299,167,294,182,283,198,269,212,238,231,235,226,265,208,279,195,289,180,293,166,293,151,283,121"/>
+<area shape="poly" id="edge24_Node000009_Node000015" title=" " alt="" coords="323,105,510,153,509,158,322,111"/>
+<area shape="poly" id="edge14_Node000010_Node000011" title=" " alt="" coords="78,197,68,230,63,228,73,196"/>
+<area shape="poly" id="edge15_Node000011_Node000003" title=" " alt="" coords="133,254,333,279,530,301,554,305,553,310,530,307,333,284,132,259"/>
+<area shape="poly" id="edge17_Node000011_Node000004" title=" " alt="" coords="110,259,221,301,219,306,109,264"/>
+<area shape="rect" id="Node000012" href="$device__scene_8cu.html" title="Upload scene buffers and debug flags to device constant memory." alt="" coords="65,304,184,331"/>
+<area shape="poly" id="edge16_Node000011_Node000012" title=" " alt="" coords="85,266,116,302,112,305,81,270"/>
+<area shape="poly" id="edge19_Node000013_Node000011" title=" " alt="" coords="183,190,92,231,89,226,181,186"/>
+<area shape="poly" id="edge22_Node000014_Node000004" title=" " alt="" coords="224,268,248,302,243,305,220,271"/>
+<area shape="poly" id="edge23_Node000014_Node000006" title=" " alt="" coords="267,258,428,301,426,306,265,263"/>
+<area shape="poly" id="edge21_Node000014_Node000012" title=" " alt="" coords="182,268,140,306,137,302,178,265"/>
+<area shape="poly" id="edge25_Node000015_Node000003" title=" " alt="" coords="575,193,595,228,608,269,614,303,609,304,603,270,590,230,570,195"/>
+<area shape="poly" id="edge27_Node000015_Node000006" title=" " alt="" coords="541,196,482,305,477,302,536,194"/>
+<area shape="poly" id="edge26_Node000015_Node000014" title=" " alt="" coords="495,185,268,231,267,226,494,179"/>
+</map>

@@ -1,0 +1,7 @@
+<map id="Quad" name="Quad">
+<area shape="rect" id="Node000001" title="Axis&#45;free quad defined by a corner and two edge vectors." alt="" coords="46,168,98,195"/>
+<area shape="rect" id="Node000002" href="$struct_vec3.html" title="Basic 3D vector." alt="" coords="5,5,56,32"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="28,47,24,94,27,119,35,143,43,155,54,166,51,170,39,159,30,145,22,120,19,94,22,47"/>
+<area shape="rect" id="Node000003" href="$struct_material.html" title="Surface properties of a renderable object." alt="" coords="81,5,148,32"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="112,48,88,145,79,168,74,167,83,143,106,47"/>
+</map>

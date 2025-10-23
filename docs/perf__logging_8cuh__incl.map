@@ -1,0 +1,16 @@
+<map id="perf_logging.cuh" name="perf_logging.cuh">
+<area shape="rect" id="Node000001" title="GPU device info, run&#45;summary print, and CSV timing logging." alt="" coords="5,5,122,32"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="7,229,117,256"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="55,34,39,55,27,81,20,108,18,131,27,180,45,216,40,218,22,182,13,131,15,108,22,79,35,52,50,31"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="37,80,90,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="66,33,66,64,61,64,61,33"/>
+<area shape="rect" id="Node000004" href="$postfx__setup_8cuh.html" title="Translate RuntimeConfig (UI/runtime) into canonical PostFX::Params." alt="" coords="114,80,293,107"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="89,30,167,70,164,75,87,35"/>
+<area shape="rect" id="Node000005" href="$postprocess_8cuh.html" title="CPU/GPU post&#45;processing filters (Gaussian, Bilateral)." alt="" coords="36,155,211,181"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="191,109,150,146,147,142,188,105"/>
+<area shape="rect" id="Node000006" href="$config_8cuh.html" title="Centralized runtime config (and legacy render switches)." alt="" coords="235,155,356,181"/>
+<area shape="poly" id="edge6_Node000004_Node000006" title=" " alt="" coords="221,105,270,143,266,147,218,109"/>
+<area shape="poly" id="edge5_Node000005_Node000002" title=" " alt="" coords="115,184,84,219,80,216,111,180"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="265,229,326,256"/>
+<area shape="poly" id="edge7_Node000006_Node000007" title=" " alt="" coords="298,182,298,214,293,214,293,182"/>
+</map>

@@ -93,16 +93,6 @@ static bool writePNG(const std::string &path, const uchar3 *pixels, int w, int h
 static bool writePNG(const std::string &, const uchar3 *, int, int) { return false; }
 #endif
 
-/**
- * @brief Save image (PPM/PNG). Creates parent directories once.
- * @param path   Output filename (extension is optional).
- * @param pixels Pointer to a contiguous array of uchar3 of size w*h.
- * @param w      Image width in pixels.
- * @param h      Image height in pixels.
- * @param fmt    Export format (PPM or PNG).
- * @return true on success; false otherwise.
- * @note I create parent directories here; the writers only write.
- */
 bool saveImage(const std::string &path, const uchar3 *pixels, const int w, const int h, const ExportFormat fmt) {
     if (!pixels || w <= 0 || h <= 0 || path.empty()) return false;
 
@@ -238,27 +228,19 @@ namespace {
     }
 } // anonymous namespace
 
-/**
- * @brief Draw an uppercase watermark in the bottom-right, 5×7 bitmap font.
- * @param img    Image buffer (modified in place).
- * @param w      Image width.
- * @param h      Image height.
- * @param textIn Watermark text; I uppercase it; unsupported chars render as spaces.
- * @note Draws a darkened rectangle backdrop for legibility, then blits opaque white glyphs.
- */
-void addWatermarkInPlace(std::vector<uchar3> &img, const int w, const int h, const std::string &textIn) {
-    if (textIn.empty() || w <= 0 || h <= 0) return;
+void addWatermarkInPlace(std::vector<uchar3> &img, const int w, const int h, const std::string &text) {
+    if (text.empty() || w <= 0 || h <= 0) return;
 
     // Uppercase to fit glyph set.
-    std::string text;
-    text.reserve(textIn.size());
-    for (const char c: textIn)
-        text.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+    std::string textIn;
+    textIn.reserve(text.size());
+    for (const char c: text)
+        textIn.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
 
     // Glyph metrics (5×7 + 1px spacing). Add a small pad around the label.
     constexpr int gw = 5, gh = 7, gap = 1;
     constexpr int margin = 6;
-    const int text_w = static_cast<int>(text.size()) * (gw + gap) - gap;
+    const int text_w = static_cast<int>(textIn.size()) * (gw + gap) - gap;
     constexpr int text_h = gh;
 
     int x0 = w - text_w - margin;
@@ -283,7 +265,7 @@ void addWatermarkInPlace(std::vector<uchar3> &img, const int w, const int h, con
 
     // Draw glyphs in opaque white.
     int penX = x0;
-    for (const char c: text) {
+    for (const char c: textIn) {
         const Glyph *g = glyphFor(c);
         for (int ry = 0; ry < gh; ++ry) {
             const uint8_t row = g->rows[ry];
@@ -356,12 +338,6 @@ namespace {
     }
 } // anonymous namespace
 
-/**
- * @brief Open a saved image with the OS default viewer (Windows).
- * @param path Path to an existing file on disk (UTF-8).
- * @return true if the OS accepted the open request; false otherwise.
- * @note Uses ShellExecuteW with UTF-8→UTF-16 conversion and prints a concise error on failure.
- */
 bool openPreview(const std::string &path) {
     if (!fs::exists(fs::path(path))) {
         std::cerr << "[PREVIEW] File does not exist: " << path << "\n";

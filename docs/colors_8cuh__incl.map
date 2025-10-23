@@ -1,0 +1,12 @@
+<map id="colors.cuh" name="colors.cuh">
+<area shape="rect" id="Node000001" title="Centralized color helpers and presets for uchar3." alt="" coords="73,5,154,32"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,155,116,181"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="112,33,73,141,68,139,107,32"/>
+<area shape="rect" id="Node000003" href="$macros_8cuh.html" title="Project&#45;wide CUDA/host qualifiers and debug/guard macros." alt="" coords="105,80,224,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="125,31,149,66,145,69,120,34"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="148,109,92,148,89,143,145,105"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="140,155,197,181"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="168,107,170,139,164,139,163,107"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="220,155,280,181"/>
+<area shape="poly" id="edge5_Node000003_Node000005" title=" " alt="" coords="181,105,226,143,222,147,178,109"/>
+</map>

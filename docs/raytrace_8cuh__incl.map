@@ -1,0 +1,36 @@
+<map id="raytrace.cuh" name="raytrace.cuh">
+<area shape="rect" id="Node000001" title="GPU ray tracing kernel entry point (primary rays)." alt="" coords="344,5,437,32"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="92,379,202,405"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="344,30,248,50,137,80,86,98,45,120,18,143,10,154,8,167,8,244,11,265,18,284,42,319,75,347,108,369,105,373,72,351,38,322,13,287,5,266,3,244,3,166,6,153,14,139,42,115,84,94,135,75,247,44,343,25"/>
+<area shape="rect" id="Node000003" href="$camera_8cuh.html" title="Camera definition and primary ray generation." alt="" coords="240,80,358,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="376,35,328,73,325,68,373,30"/>
+<area shape="rect" id="Node000010" href="$vec3_8cuh.html" title="Basic 3D vector type for points, directions, and colors." alt="" coords="296,229,400,256"/>
+<area shape="poly" id="edge18_Node000001_Node000010" title=" " alt="" coords="391,33,356,215,351,214,386,32"/>
+<area shape="rect" id="Node000012" href="$light_8cuh.html" title="Light source types and data structure." alt="" coords="480,155,608,181"/>
+<area shape="poly" id="edge19_Node000001_Node000012" title=" " alt="" coords="408,30,463,78,525,142,521,145,460,82,404,34"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="253,110,209,127,160,152,116,186,98,207,84,230,78,248,77,266,87,303,105,337,127,365,122,369,101,340,82,305,72,267,73,247,79,228,94,204,113,182,158,147,207,122,251,105"/>
+<area shape="rect" id="Node000004" href="$macros_8cuh.html" title="Project&#45;wide CUDA/host qualifiers and debug/guard macros." alt="" coords="289,304,407,331"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="317,105,368,154,394,189,414,228,418,243,414,257,400,279,382,296,379,293,396,276,410,255,413,243,410,230,390,192,364,158,313,109"/>
+<area shape="rect" id="Node000007" href="$numerics_8cuh.html" title="Small numeric helpers and constants (angles, tolerances, clamps)." alt="" coords="93,229,222,256"/>
+<area shape="poly" id="edge8_Node000003_Node000007" title=" " alt="" coords="269,110,234,129,201,156,181,185,168,215,163,213,176,183,197,153,231,125,267,105"/>
+<area shape="poly" id="edge12_Node000003_Node000010" title=" " alt="" coords="305,106,342,214,337,216,300,108"/>
+<area shape="rect" id="Node000011" href="$ray_8cuh.html" title="Mathematical ray type for 3D space." alt="" coords="211,155,304,181"/>
+<area shape="poly" id="edge15_Node000003_Node000011" title=" " alt="" coords="294,109,274,143,270,140,289,106"/>
+<area shape="poly" id="edge5_Node000004_Node000002" title=" " alt="" coords="314,334,197,375,195,370,312,329"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="360,379,416,405"/>
+<area shape="poly" id="edge6_Node000004_Node000005" title=" " alt="" coords="357,330,376,364,371,366,353,333"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="277,379,336,405"/>
+<area shape="poly" id="edge7_Node000004_Node000006" title=" " alt="" coords="343,333,324,367,319,364,338,330"/>
+<area shape="poly" id="edge9_Node000007_Node000004" title=" " alt="" coords="191,254,302,296,300,301,190,259"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="207,304,265,331"/>
+<area shape="poly" id="edge10_Node000007_Node000008" title=" " alt="" coords="173,255,213,291,209,295,169,259"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="129,304,183,331"/>
+<area shape="poly" id="edge11_Node000007_Node000009" title=" " alt="" coords="160,257,159,288,154,288,154,256"/>
+<area shape="poly" id="edge14_Node000010_Node000004" title=" " alt="" coords="351,257,351,288,345,288,345,257"/>
+<area shape="poly" id="edge13_Node000010_Node000008" title=" " alt="" coords="330,259,270,298,267,293,327,254"/>
+<area shape="poly" id="edge17_Node000011_Node000004" title=" " alt="" coords="262,181,270,216,286,255,302,275,321,292,317,296,298,278,282,257,265,218,257,183"/>
+<area shape="poly" id="edge16_Node000011_Node000010" title=" " alt="" coords="275,180,322,218,319,222,271,184"/>
+<area shape="poly" id="edge22_Node000012_Node000002" title=" " alt="" coords="541,183,525,215,499,256,464,299,443,317,420,333,383,347,332,361,218,382,217,377,330,356,382,342,417,328,440,313,460,295,495,253,520,212,536,181"/>
+<area shape="poly" id="edge21_Node000012_Node000004" title=" " alt="" coords="535,183,502,219,458,258,390,299,388,294,454,254,499,215,532,180"/>
+<area shape="poly" id="edge20_Node000012_Node000010" title=" " alt="" coords="511,184,398,226,396,221,509,179"/>
+</map>

@@ -1,0 +1,13 @@
+<map id="camera.cuh" name="camera.cuh">
+<area shape="rect" id="Node000001" title="Camera definition and primary ray generation." alt="" coords="157,5,246,32"/>
+<area shape="rect" id="Node000002" href="$cpu__raytracer_8cu.html" title="CPU reference renderer: matches GPU scene/light/shader for visual parity." alt="" coords="5,80,124,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="166,42,90,82,87,77,163,37"/>
+<area shape="rect" id="Node000003" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="143,155,210,181"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="196,47,188,80,180,155,175,154,183,80,191,46"/>
+<area shape="rect" id="Node000004" href="$raytrace_8cuh.html" title="GPU ray tracing kernel entry point (primary rays)." alt="" coords="198,80,291,107"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="219,44,239,78,235,81,215,47"/>
+<area shape="rect" id="Node000005" href="$raytracer_8cu.html" title="GPU primary&#45;ray kernel: shade one pixel per thread and write RGB." alt="" coords="266,155,356,181"/>
+<area shape="poly" id="edge6_Node000001_Node000005" title=" " alt="" coords="255,36,283,54,305,79,314,98,317,119,316,154,311,154,312,119,309,100,301,81,279,58,252,41"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="224,120,190,156,186,152,220,116"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="268,116,302,152,298,156,264,120"/>
+</map>

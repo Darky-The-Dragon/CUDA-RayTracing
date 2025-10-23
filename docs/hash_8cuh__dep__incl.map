@@ -1,0 +1,5 @@
+<map id="hash.cuh" name="hash.cuh">
+<area shape="rect" id="Node000001" title="Lightweight FNV&#45;1a 32&#45;bit checksum for reproducibility validation." alt="" coords="5,5,80,32"/>
+<area shape="rect" id="Node000002" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="9,80,76,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="45,48,45,80,40,80,40,48"/>
+</map>

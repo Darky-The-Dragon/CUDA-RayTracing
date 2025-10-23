@@ -1,0 +1,17 @@
+<map id="light.cuh" name="light.cuh">
+<area shape="rect" id="Node000001" title="Light source types and data structure." alt="" coords="136,5,206,32"/>
+<area shape="rect" id="Node000002" href="$vec3_8cuh.html" title="Basic 3D vector type for points, directions, and colors." alt="" coords="30,80,134,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="157,35,111,72,108,68,154,30"/>
+<area shape="rect" id="Node000004" href="$macros_8cuh.html" title="Project&#45;wide CUDA/host qualifiers and debug/guard macros." alt="" coords="87,155,205,181"/>
+<area shape="poly" id="edge7_Node000001_Node000004" title=" " alt="" coords="172,33,153,140,148,139,167,32"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="196,229,306,256"/>
+<area shape="poly" id="edge8_Node000001_Node000005" title=" " alt="" coords="178,32,244,214,239,216,173,33"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="5,155,63,181"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="76,109,53,143,48,140,71,106"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="95,105,127,141,123,145,91,109"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="166,180,222,218,219,222,163,184"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="32,229,89,256"/>
+<area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="133,184,88,221,85,217,129,180"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="112,229,172,256"/>
+<area shape="poly" id="edge6_Node000004_Node000007" title=" " alt="" coords="148,182,146,214,141,214,143,182"/>
+</map>

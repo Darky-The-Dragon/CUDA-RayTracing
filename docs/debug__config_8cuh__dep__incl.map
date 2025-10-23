@@ -1,0 +1,15 @@
+<map id="debug_config.cuh" name="debug_config.cuh">
+<area shape="rect" id="Node000001" title="Centralized debug feature toggles (compile&#45;time + runtime)." alt="" coords="160,5,284,32"/>
+<area shape="rect" id="Node000002" href="$cpu__raytracer_8cu.html" title="CPU reference renderer: matches GPU scene/light/shader for visual parity." alt="" coords="5,155,124,181"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="146,32,99,50,79,64,63,81,56,99,55,118,62,154,57,155,49,119,50,98,58,79,76,60,97,45,144,27"/>
+<area shape="rect" id="Node000003" href="$debug__utils_8cuh.html" title="Lightweight debug gizmos for visualizing light position and direction." alt="" coords="72,80,185,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="195,44,146,82,143,77,192,40"/>
+<area shape="rect" id="Node000004" href="$raytracer_8cu.html" title="GPU primary&#45;ray kernel: shade one pixel per thread and write RGB." alt="" coords="162,155,252,181"/>
+<area shape="poly" id="edge7_Node000001_Node000004" title=" " alt="" coords="222,48,211,154,206,154,216,47"/>
+<area shape="rect" id="Node000005" href="$device__scene_8cu.html" title="Upload scene buffers and debug flags to device constant memory." alt="" coords="260,80,379,107"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="252,39,304,77,301,82,249,44"/>
+<area shape="rect" id="Node000006" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="403,80,470,107"/>
+<area shape="poly" id="edge6_Node000001_Node000006" title=" " alt="" coords="275,35,403,78,402,83,273,40"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="109,120,78,156,74,152,105,117"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="155,116,195,152,192,156,152,120"/>
+</map>

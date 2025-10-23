@@ -1,0 +1,7 @@
+<map id="Hit" name="Hit">
+<area shape="rect" id="Node000001" title="Closest&#45;hit payload filled by traversal." alt="" coords="53,125,91,152"/>
+<area shape="rect" id="Node000002" href="$struct_vec3.html" title="Basic 3D vector." alt="" coords="5,5,56,32"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="42,46,70,124,65,126,37,48"/>
+<area shape="rect" id="Node000003" href="$struct_material.html" title="Surface properties of a renderable object." alt="" coords="80,5,147,32"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="106,48,79,126,74,124,101,46"/>
+</map>

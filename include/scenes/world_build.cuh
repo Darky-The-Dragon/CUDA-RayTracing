@@ -1,11 +1,17 @@
-// ============================================================================
-// @file world_build.cuh
-// @brief Centralized scene assembly for CPU & GPU renderers (HOST ONLY).
-//
-// Build the world on the host and upload to device constants. No device-side
-// calls are required (or desired), which keeps NVCC happy and avoids constexpr
-// host/device mix warnings.
-// ============================================================================
+/**
+ * @file world_build.cuh
+ * @brief Centralized scene assembly for CPU & GPU renderers (host-only).
+ *
+ * Build the world on the host and upload to device constants. No device-side
+ * calls are required (or desired), which keeps NVCC happy and avoids constexpr
+ * host/device mix warnings.
+ *
+ * @details
+ * The helpers here fill temporary host buffers and are intended to be used
+ * before launching any CUDA kernels.
+ *
+ * @note Host-only utilities. No __device__/__global__ code in this TU.
+ */
 
 #ifndef SCENES_WORLD_BUILD_CUH
 #define SCENES_WORLD_BUILD_CUH
@@ -13,7 +19,7 @@
 #include <cstdint>
 #include <algorithm>
 #include "config/scene_config.cuh"
-#include "core/material.cuh"      // explicit: uses Material / Materials
+#include "core/material.cuh"
 #include "geometry/quad.cuh"
 #include "geometry/sphere.cuh"
 #include "scenes/basic_boxes.cuh"
@@ -22,13 +28,13 @@
 static_assert(MAX_QUADS > 0, "MAX_QUADS must be > 0");
 static_assert(MAX_SPHERES > 0, "MAX_SPHERES must be > 0");
 
-/// ------------------------------------------------------------------------
-/// @struct WorldBuffers
-/// @brief Temporary stack-allocated storage for all scene geometry.
-/// @details
-///  - Backed by fixed-size arrays controlled by MAX_* compile-time caps.
-///  - Filled on the host; later uploaded to device constant memory.
-/// ------------------------------------------------------------------------
+/**
+ * @brief Temporary stack-allocated storage for all scene geometry.
+ *
+ * @details
+ * - Backed by fixed-size arrays controlled by MAX_* compile-time caps.
+ * - Filled on the host; later uploaded to device constant memory.
+ */
 struct WorldBuffers {
     Quad quads[MAX_QUADS]; ///< Quad storage.
     Sphere spheres[MAX_SPHERES]; ///< Sphere storage.
@@ -37,14 +43,20 @@ struct WorldBuffers {
 };
 
 // -------------------------------------------------------------------------
-// HOST-ONLY helpers
+// Host-only helpers
 // -------------------------------------------------------------------------
 
-/// ----------------------------------------------------------------------------
-/// @brief Append the Cornell Box quads to the world.
-/// @param W World buffers to append into.
-/// @note Writes exactly SCENE_QUAD_COUNT quads if capacity allows.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Append the Cornell Box quads to the world.
+ *
+ * @param W World buffers to append into.
+ *
+ * @note Writes exactly SCENE_QUAD_COUNT quads if capacity allows
+ *       (truncates if not enough room).
+ *
+ * @pre  0 <= W.numQuads <= MAX_QUADS
+ * @post W.numQuads increased by at most SCENE_QUAD_COUNT (capped at MAX_QUADS).
+ */
 inline void addCornellBox(WorldBuffers &W) {
     Quad tmp[SCENE_QUAD_COUNT];
     buildCornellBox(tmp);
@@ -56,11 +68,16 @@ inline void addCornellBox(WorldBuffers &W) {
     }
 }
 
-/// ----------------------------------------------------------------------------
-/// @brief Append a small set of test spheres to the world.
-/// @param W World buffers to append into.
-/// @note Stops early if MAX_SPHERES capacity is reached.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Append a small set of test spheres to the world.
+ *
+ * @param W World buffers to append into.
+ *
+ * @note Stops early if MAX_SPHERES capacity is reached.
+ *
+ * @pre  0 <= W.numSpheres <= MAX_SPHERES
+ * @post W.numSpheres increased by up to 3 (capped at MAX_SPHERES).
+ */
 inline void addTestSpheres(WorldBuffers &W) {
     if (W.numSpheres >= MAX_SPHERES) return;
 
@@ -81,18 +98,20 @@ inline void addTestSpheres(WorldBuffers &W) {
                    Material(REFRACTIVE, make_uchar3(255, 255, 255), 0.0f, 1.52f, 0.0f));
 }
 
-/// ----------------------------------------------------------------------------
-/// @brief Append a few example cubes using the reusable box helper.
-/// @details
-///  - Opaque red
-///  - Metallic (reflective)
-///  - Transparent (glass-like)
-///
-/// Positions are relative to the Cornell box frame (~center near y ≈ 0.99).
-///
-/// @param W World buffers to append into.
-/// @note Each cube writes 6 quads; requires enough headroom in MAX_QUADS.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Append a few example cubes using the reusable box helper.
+ *
+ * Positions are relative to the Cornell box frame (~center near y ≈ 0.99).
+ *
+ * @details
+ * - Opaque red
+ * - Metallic (reflective)
+ * - Transparent (glass-like)
+ *
+ * @param W World buffers to append into.
+ *
+ * @note Each cube writes 6 quads; requires enough headroom in MAX_QUADS.
+ */
 inline void addCubes(WorldBuffers &W) {
     // Forward to rotation-capable overload with 0° yaw by default
     auto addBox = [&](const Vec3 &center, const Vec3 &size,
@@ -118,12 +137,17 @@ inline void addCubes(WorldBuffers &W) {
     // addBoxQuads(W.quads, W.numQuads, MAX_QUADS, Vec3(0.0f, 0.99f, 0.0f), med, metal, 45.0f);
 }
 
-/// ----------------------------------------------------------------------------
-/// @brief Build the world from a bitmask of sub-scenes (HOST ONLY).
-/// @param W         [out] Output buffers to fill (counts are reset).
-/// @param sceneMask Bitmask combining SceneBits (e.g., SCENE_CORNELL | SCENE_SPHERES).
-/// @note Appends geometry in the order: Cornell → Spheres → Cubes.
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Build the world from a bitmask of sub-scenes (host-only).
+ *
+ * Appends geometry in the order: Cornell → Spheres → Cubes.
+ *
+ * @param W         [out] Output buffers to fill (counts are reset).
+ * @param sceneMask Bitmask combining SceneBits (e.g., SCENE_CORNELL | SCENE_SPHERES).
+ *
+ * @pre  W.numQuads and W.numSpheres are ignored; function resets counts to 0.
+ * @post W contains the enabled sub-scenes; counts reflect appended geometry.
+ */
 inline void buildWorld(WorldBuffers &W, const std::uint32_t sceneMask) {
     W.numQuads = 0;
     W.numSpheres = 0;
@@ -133,10 +157,12 @@ inline void buildWorld(WorldBuffers &W, const std::uint32_t sceneMask) {
     if (sceneEnabled(sceneMask, SCENE_CUBES)) addCubes(W);
 }
 
-/// ----------------------------------------------------------------------------
-/// @brief Back-compat overload using the compile-time default scene mask.
-/// @param W [out] Output buffers to fill (counts are reset).
-/// ----------------------------------------------------------------------------
+/**
+ * @brief Build the world using the compile-time default scene mask.
+ *
+ * @param W [out] Output buffers to fill (counts are reset).
+ * @overload
+ */
 inline void buildWorld(WorldBuffers &W) {
     buildWorld(W, DEFAULT_SCENE_MASK);
 }

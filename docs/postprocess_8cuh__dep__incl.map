@@ -1,0 +1,16 @@
+<map id="postprocess.cuh" name="postprocess.cuh">
+<area shape="rect" id="Node000001" title="CPU/GPU post&#45;processing filters (Gaussian, Bilateral)." alt="" coords="52,5,170,32"/>
+<area shape="rect" id="Node000002" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="5,229,73,256"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="76,43,56,60,41,81,30,121,28,163,32,200,38,228,33,229,27,201,23,163,25,120,37,79,52,57,72,39"/>
+<area shape="rect" id="Node000003" href="$postfx__setup_8cuh.html" title="Translate RuntimeConfig (UI/runtime) into canonical PostFX::Params." alt="" coords="50,80,172,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="114,48,114,80,108,80,108,48"/>
+<area shape="rect" id="Node000006" href="$postprocess_8cu.html" title="CPU &amp; GPU post&#45;processing (Gaussian blur, Bilateral filter)." alt="" coords="196,80,306,107"/>
+<area shape="poly" id="edge8_Node000001_Node000006" title=" " alt="" coords="150,37,228,77,225,82,148,42"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="91,120,67,156,52,195,44,230,38,228,47,194,62,153,87,117"/>
+<area shape="rect" id="Node000004" href="$perf__logging_8cu.html" title="Device query, run&#45;summary print, and CSV timing logging." alt="" coords="136,229,246,256"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="162,112,188,129,208,153,214,174,213,195,200,230,195,228,207,193,209,174,203,156,184,133,159,116"/>
+<area shape="rect" id="Node000005" href="$perf__logging_8cuh.html" title="GPU device info, run&#45;summary print, and CSV timing logging." alt="" coords="77,155,193,181"/>
+<area shape="poly" id="edge5_Node000003_Node000005" title=" " alt="" coords="123,121,133,153,128,155,117,123"/>
+<area shape="poly" id="edge6_Node000005_Node000002" title=" " alt="" coords="108,193,57,231,54,227,105,189"/>
+<area shape="poly" id="edge7_Node000005_Node000004" title=" " alt="" coords="156,192,183,227,179,231,152,195"/>
+</map>

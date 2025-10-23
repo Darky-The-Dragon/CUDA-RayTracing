@@ -23,11 +23,6 @@
 #include "rendering/device_scene.cuh"
 #include "scenes/world_build.cuh"
 
-/**
- * @brief Upload runtime debug toggles to device constant memory.
- * @param rc Runtime configuration built from the UI/menu.
- * @note Writes `d_dbg` (constant). Booleans are packed as uint8_t.
- */
 void uploadDebugToDevice(const RuntimeConfig &rc) {
     DebugConfig D{};
     D.drawLightSphere = rc.dbgDrawLightSphere ? 1 : 0;
@@ -36,14 +31,6 @@ void uploadDebugToDevice(const RuntimeConfig &rc) {
     CUDA_GUARD(cudaMemcpyToSymbol(d_dbg, &D, sizeof(D)));
 }
 
-/**
- * @brief Upload world geometry to device constant memory.
- * @param W Host-side world buffers (fixed-cap arrays + counts).
- * @note
- *  - I clamp counts to `[0, MAX_*]` to keep copies safe.
- *  - Layout matches `rendering/device_scene.cuh` constant declarations.
- *  - Copies are synchronous; callers typically do this once per scene build.
- */
 void uploadSceneToDevice(const WorldBuffers &W) {
     const int nq = std::clamp(W.numQuads, 0, MAX_QUADS);
     const int ns = std::clamp(W.numSpheres, 0, MAX_SPHERES);

@@ -1,0 +1,38 @@
+<map id="perf_logging.cu" name="perf_logging.cu">
+<area shape="rect" id="Node000001" title="Device query, run&#45;summary print, and CSV timing logging." alt="" coords="641,5,751,32"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="207,304,318,331"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="641,24,515,29,357,39,204,56,143,68,97,82,68,96,46,110,29,128,14,156,8,184,15,209,32,231,57,250,89,266,124,280,193,300,192,305,122,285,87,271,55,254,28,234,10,211,3,184,9,154,25,125,43,106,65,91,95,78,141,63,204,51,356,33,515,23,641,19"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="695,80,777,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="705,31,724,65,719,68,701,34"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="801,80,866,107"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="721,30,797,70,795,75,719,35"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="889,80,956,107"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="736,30,876,74,874,79,735,35"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="980,80,1052,107"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="752,29,966,77,965,82,751,34"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="631,155,684,181"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="695,33,667,140,662,139,690,32"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="1076,80,1129,107"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="751,24,888,44,1061,77,1060,82,887,49,750,29"/>
+<area shape="rect" id="Node000009" href="$macros_8cuh.html" title="Project&#45;wide CUDA/host qualifiers and debug/guard macros." alt="" coords="107,80,226,107"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="641,30,241,85,240,79,640,25"/>
+<area shape="rect" id="Node000012" href="$postfx__setup_8cuh.html" title="Translate RuntimeConfig (UI/runtime) into canonical PostFX::Params." alt="" coords="364,155,542,181"/>
+<area shape="poly" id="edge12_Node000001_Node000012" title=" " alt="" coords="641,30,539,50,494,64,466,82,458,95,454,109,452,140,447,139,448,108,453,92,462,78,492,60,537,44,640,24"/>
+<area shape="rect" id="Node000016" href="$perf__logging_8cuh.html" title="GPU device info, run&#45;summary print, and CSV timing logging." alt="" coords="476,80,620,107"/>
+<area shape="poly" id="edge17_Node000001_Node000016" title=" " alt="" coords="671,35,589,75,586,70,669,30"/>
+<area shape="poly" id="edge9_Node000009_Node000002" title=" " alt="" coords="173,106,194,171,228,255,248,290,243,292,223,257,189,173,168,108"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="24,155,80,181"/>
+<area shape="poly" id="edge10_Node000009_Node000010" title=" " alt="" coords="148,109,86,148,84,144,145,105"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="104,155,163,181"/>
+<area shape="poly" id="edge11_Node000009_Node000011" title=" " alt="" coords="163,108,148,142,143,139,158,106"/>
+<area shape="rect" id="Node000013" href="$postprocess_8cuh.html" title="CPU/GPU post&#45;processing filters (Gaussian, Bilateral)." alt="" coords="237,229,411,256"/>
+<area shape="poly" id="edge13_Node000012_Node000013" title=" " alt="" coords="432,184,361,224,359,219,430,180"/>
+<area shape="rect" id="Node000014" href="$config_8cuh.html" title="Centralized runtime config (and legacy render switches)." alt="" coords="436,229,556,256"/>
+<area shape="poly" id="edge15_Node000012_Node000014" title=" " alt="" coords="463,181,483,215,479,217,458,183"/>
+<area shape="poly" id="edge14_Node000013_Node000002" title=" " alt="" coords="315,258,285,294,281,290,311,255"/>
+<area shape="rect" id="Node000015" title=" " alt="" coords="466,304,526,331"/>
+<area shape="poly" id="edge16_Node000014_Node000015" title=" " alt="" coords="499,257,499,288,493,288,493,257"/>
+<area shape="poly" id="edge18_Node000016_Node000002" title=" " alt="" coords="558,106,571,136,584,176,586,219,581,239,570,258,554,271,531,281,470,298,400,309,333,315,333,310,399,303,469,293,529,276,551,266,566,254,576,237,581,218,578,177,566,138,553,108"/>
+<area shape="poly" id="edge19_Node000016_Node000007" title=" " alt="" coords="569,105,627,144,624,148,566,109"/>
+<area shape="poly" id="edge20_Node000016_Node000012" title=" " alt="" coords="533,109,483,147,480,143,530,105"/>
+</map>

@@ -1,0 +1,9 @@
+<map id="image_io.cuh" name="image_io.cuh">
+<area shape="rect" id="Node000001" title="Simple RGB image I/O and watermark helpers." alt="" coords="63,5,161,32"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,80,59,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="100,35,59,72,55,68,96,31"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="83,80,141,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="115,33,115,64,109,64,109,33"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="165,80,275,107"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="132,30,190,69,187,73,129,35"/>
+</map>

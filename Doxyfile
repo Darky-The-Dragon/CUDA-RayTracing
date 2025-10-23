@@ -1,0 +1,64 @@
+# Project
+PROJECT_NAME           = "CUDA Ray Tracing"
+PROJECT_BRIEF          = "Educational CUDA based Ray Tracer (Cornell Box)"
+MARKDOWN_SUPPORT       = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+
+# Inputs
+INPUT                  = README.md include src
+FILE_PATTERNS          = *.cuh *.cu *.cpp *.c *.hpp *.h *.md
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */build/* */cmake-build-*/ */.git/* */third_party/*
+
+# CUDA mapping & qualifiers
+EXTENSION_MAPPING      = cu=C++ cuh=C++
+PREDEFINED             = __host__= \
+                         __device__= \
+                         __global__= \
+                         __constant__= \
+                         __shared__= \
+                         __forceinline__= \
+                         __restrict__= \
+                         __CUDACC__=1
+
+# Output
+OUTPUT_DIRECTORY       = docs
+GENERATE_HTML          = YES
+HTML_OUTPUT            = .
+GENERATE_LATEX         = NO
+CREATE_SUBDIRS         = NO
+GENERATE_TREEVIEW      = YES
+FULL_PATH_NAMES        = NO
+
+# Extraction / visibility
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+HIDE_UNDOC_CLASSES     = NO
+HIDE_UNDOC_MEMBERS     = NO
+JAVADOC_AUTOBRIEF      = YES
+MULTILINE_CPP_IS_BRIEF = YES
+
+# Source browser
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = YES
+REFERENCES_RELATION    = YES
+REFERENCED_BY_RELATION = YES
+VERBATIM_HEADERS       = YES
+
+# Graphviz
+HAVE_DOT               = YES
+# DOT_PATH            = "C:/Program Files/Graphviz/bin"   # uncomment if PATH wasn't set up
+DOT_IMAGE_FORMAT       = svg
+DOT_GRAPH_MAX_NODES    = 250
+DOT_MULTI_TARGETS      = YES
+DOT_NUM_THREADS        = 1
+CLASS_GRAPH            = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+
+# Warnings
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+QUIET                  = NO

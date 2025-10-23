@@ -1,0 +1,9 @@
+<map id="world_build.cuh" name="world_build.cuh">
+<area shape="rect" id="Node000001" title="Centralized scene assembly for CPU &amp; GPU renderers (host&#45;only)." alt="" coords="152,5,263,32"/>
+<area shape="rect" id="Node000002" href="$cpu__raytracer_8cu.html" title="CPU reference renderer: matches GPU scene/light/shader for visual parity." alt="" coords="5,80,124,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="170,42,91,82,88,77,168,37"/>
+<area shape="rect" id="Node000003" href="$device__scene_8cu.html" title="Upload scene buffers and debug flags to device constant memory." alt="" coords="148,80,267,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="210,48,210,80,204,80,204,48"/>
+<area shape="rect" id="Node000004" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="291,80,358,107"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="242,38,305,77,303,82,239,43"/>
+</map>

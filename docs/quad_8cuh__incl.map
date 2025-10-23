@@ -1,0 +1,31 @@
+<map id="quad.cuh" name="quad.cuh">
+<area shape="rect" id="Node000001" title="Quad primitive for ray tracing." alt="" coords="167,5,242,32"/>
+<area shape="rect" id="Node000002" href="$macros_8cuh.html" title="Project&#45;wide CUDA/host qualifiers and debug/guard macros." alt="" coords="31,229,149,256"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="168,25,134,30,98,40,63,57,33,82,16,106,9,129,10,152,20,180,35,201,55,218,51,222,31,205,16,183,5,154,4,128,12,103,29,78,60,53,96,35,133,25,167,20"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="324,304,434,331"/>
+<area shape="poly" id="edge18_Node000001_Node000003" title=" " alt="" coords="243,25,294,40,353,65,410,102,435,126,455,153,462,172,464,192,453,230,431,266,406,295,402,291,426,263,448,228,458,191,457,173,450,156,431,129,407,106,351,70,292,45,242,30"/>
+<area shape="rect" id="Node000006" href="$numerics_8cuh.html" title="Small numeric helpers and constants (angles, tolerances, clamps)." alt="" coords="166,155,294,181"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="209,32,228,139,223,140,204,33"/>
+<area shape="rect" id="Node000009" href="$vec3_8cuh.html" title="Basic 3D vector type for points, directions, and colors." alt="" coords="38,155,142,181"/>
+<area shape="poly" id="edge9_Node000001_Node000009" title=" " alt="" coords="200,34,179,68,151,108,117,145,113,142,147,105,175,65,195,31"/>
+<area shape="rect" id="Node000010" href="$ray_8cuh.html" title="Mathematical ray type for 3D space." alt="" coords="44,80,136,107"/>
+<area shape="poly" id="edge12_Node000001_Node000010" title=" " alt="" coords="186,35,124,74,122,69,183,30"/>
+<area shape="rect" id="Node000011" href="$material_8cuh.html" title="Surface material definitions and presets." alt="" coords="319,155,440,181"/>
+<area shape="poly" id="edge15_Node000001_Node000011" title=" " alt="" coords="221,30,355,143,351,147,218,35"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="141,254,315,297,313,302,140,259"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="22,304,78,331"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="85,258,67,292,62,289,81,255"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="102,304,161,331"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="99,255,119,289,114,292,95,258"/>
+<area shape="poly" id="edge6_Node000006_Node000002" title=" " alt="" coords="207,184,129,224,127,219,204,180"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="173,229,231,256"/>
+<area shape="poly" id="edge7_Node000006_Node000007" title=" " alt="" coords="228,183,215,216,210,214,223,181"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="255,229,309,256"/>
+<area shape="poly" id="edge8_Node000006_Node000008" title=" " alt="" coords="241,180,266,215,262,218,237,183"/>
+<area shape="poly" id="edge11_Node000009_Node000002" title=" " alt="" coords="93,182,93,214,87,214,87,182"/>
+<area shape="poly" id="edge10_Node000009_Node000007" title=" " alt="" coords="111,180,171,218,168,223,108,184"/>
+<area shape="poly" id="edge14_Node000010_Node000002" title=" " alt="" coords="71,109,47,129,28,156,26,173,32,189,44,204,59,218,56,222,40,208,28,192,21,173,24,154,43,125,68,105"/>
+<area shape="poly" id="edge13_Node000010_Node000009" title=" " alt="" coords="93,107,93,139,87,139,87,107"/>
+<area shape="poly" id="edge17_Node000011_Node000002" title=" " alt="" coords="330,184,156,228,155,222,328,179"/>
+<area shape="poly" id="edge16_Node000011_Node000003" title=" " alt="" coords="382,182,382,288,377,288,377,182"/>
+</map>

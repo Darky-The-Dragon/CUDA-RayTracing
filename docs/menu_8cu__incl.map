@@ -1,0 +1,22 @@
+<map id="menu.cu" name="menu.cu">
+<area shape="rect" id="Node000001" title="Console menu to build a RuntimeConfig (y/n booleans, defaults on Enter)." alt="" coords="266,5,338,32"/>
+<area shape="rect" id="Node000002" href="$menu_8cuh.html" title="Console menu for building a RuntimeConfig." alt="" coords="5,80,98,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="267,33,110,78,109,73,266,28"/>
+<area shape="rect" id="Node000003" href="$config_8cuh.html" title="Centralized runtime config (and legacy render switches)." alt="" coords="29,155,149,181"/>
+<area shape="poly" id="edge9_Node000001_Node000003" title=" " alt="" coords="267,34,219,54,169,82,135,113,108,144,104,141,131,109,166,78,216,49,265,29"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="156,229,216,256"/>
+<area shape="poly" id="edge7_Node000001_Node000004" title=" " alt="" coords="272,35,241,54,214,82,198,114,190,150,187,214,181,214,185,149,193,113,209,78,237,50,270,30"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="224,80,295,107"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="297,34,277,68,272,65,292,31"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="320,80,373,107"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="312,31,333,65,328,68,308,34"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="397,80,458,107"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="325,30,394,70,391,74,323,35"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="482,80,544,107"/>
+<area shape="poly" id="edge8_Node000001_Node000008" title=" " alt="" coords="339,30,468,74,466,79,338,35"/>
+<area shape="rect" id="Node000009" href="$scene__config_8cuh.html" title="Global configuration for active scenes and buffer limits." alt="" coords="361,155,523,181"/>
+<area shape="poly" id="edge10_Node000001_Node000009" title=" " alt="" coords="339,20,396,27,461,39,520,55,543,66,558,78,564,90,564,101,552,121,528,138,499,151,497,146,525,133,548,117,559,100,559,91,553,82,540,70,518,60,460,44,395,33,338,26"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="60,106,78,140,73,142,56,108"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="107,180,159,218,156,222,104,184"/>
+<area shape="poly" id="edge11_Node000009_Node000004" title=" " alt="" coords="398,184,232,231,230,226,397,179"/>
+</map>

@@ -1,0 +1,24 @@
+<map id="defaults.cuh" name="defaults.cuh">
+<area shape="rect" id="Node000001" title="Default rendering settings shared by CPU and GPU paths." alt="" coords="157,5,249,32"/>
+<area shape="rect" id="Node000002" href="$colors_8cuh.html" title="Centralized color helpers and presets for uchar3." alt="" coords="5,155,116,181"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="186,35,129,82,79,143,75,140,125,78,183,31"/>
+<area shape="rect" id="Node000004" href="$macros_8cuh.html" title="Project&#45;wide CUDA/host qualifiers and debug/guard macros." alt="" coords="189,229,308,256"/>
+<area shape="poly" id="edge7_Node000001_Node000004" title=" " alt="" coords="229,30,261,49,298,77,333,112,359,154,361,177,349,197,329,213,305,225,302,221,326,208,345,193,356,176,354,156,329,115,295,81,258,54,227,35"/>
+<area shape="rect" id="Node000007" href="$light_8cuh.html" title="Light source types and data structure." alt="" coords="140,80,267,107"/>
+<area shape="poly" id="edge8_Node000001_Node000007" title=" " alt="" coords="206,33,206,64,200,64,200,33"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="85,304,196,331"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="70,181,129,289,124,291,65,183"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="94,179,202,221,200,226,92,184"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="231,259,174,297,171,293,228,254"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="220,304,277,331"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="251,257,251,288,246,288,246,257"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="300,304,360,331"/>
+<area shape="poly" id="edge6_Node000004_Node000006" title=" " alt="" coords="264,255,306,292,303,296,261,259"/>
+<area shape="poly" id="edge13_Node000007_Node000003" title=" " alt="" coords="202,108,151,290,146,288,197,106"/>
+<area shape="poly" id="edge12_Node000007_Node000004" title=" " alt="" coords="209,106,231,181,242,214,237,216,226,182,204,108"/>
+<area shape="rect" id="Node000008" href="$vec3_8cuh.html" title="Basic 3D vector type for points, directions, and colors." alt="" coords="241,155,344,181"/>
+<area shape="poly" id="edge9_Node000007_Node000008" title=" " alt="" coords="220,105,267,143,264,147,217,109"/>
+<area shape="poly" id="edge11_Node000008_Node000004" title=" " alt="" coords="287,183,266,217,262,215,283,180"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="332,229,389,256"/>
+<area shape="poly" id="edge10_Node000008_Node000009" title=" " alt="" coords="306,180,340,216,336,220,302,184"/>
+</map>

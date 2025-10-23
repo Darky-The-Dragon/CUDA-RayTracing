@@ -1,0 +1,37 @@
+<map id="basic_boxes.cuh" name="basic_boxes.cuh">
+<area shape="rect" id="Node000001" title="Helpers to append axis&#45;aligned / yaw&#45;rotated boxes as 6 quads." alt="" coords="279,5,398,32"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="44,304,102,331"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="291,35,222,60,142,99,103,125,66,155,35,191,11,230,9,247,15,264,27,279,42,293,39,297,23,283,10,266,3,248,6,228,31,187,63,152,99,121,139,94,220,55,290,30"/>
+<area shape="rect" id="Node000003" href="$macros_8cuh.html" title="Project&#45;wide CUDA/host qualifiers and debug/guard macros." alt="" coords="302,304,420,331"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="396,30,446,46,500,72,550,107,572,128,590,153,599,180,595,205,580,228,556,247,495,279,430,302,428,297,493,274,553,243,576,224,590,203,594,181,585,156,568,132,547,111,497,76,444,51,394,35"/>
+<area shape="rect" id="Node000007" href="$vec3_8cuh.html" title="Basic 3D vector type for points, directions, and colors." alt="" coords="21,229,125,256"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="314,35,229,83,179,117,134,157,108,187,89,217,84,214,104,184,130,153,176,113,226,78,311,30"/>
+<area shape="rect" id="Node000008" href="$quad_8cuh.html" title="Quad primitive for ray tracing." alt="" coords="272,80,404,107"/>
+<area shape="poly" id="edge9_Node000001_Node000008" title=" " alt="" coords="341,33,341,64,336,64,336,33"/>
+<area shape="rect" id="Node000012" href="$material_8cuh.html" title="Surface material definitions and presets." alt="" coords="454,155,575,181"/>
+<area shape="poly" id="edge23_Node000001_Node000012" title=" " alt="" coords="357,30,419,78,492,143,489,147,415,82,354,35"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="415,379,525,405"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="381,329,440,368,437,372,379,333"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="251,379,308,405"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="349,333,307,370,303,366,345,329"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="331,379,391,405"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="364,331,364,363,358,363,358,331"/>
+<area shape="poly" id="edge7_Node000007_Node000002" title=" " alt="" coords="76,257,76,288,70,288,70,257"/>
+<area shape="poly" id="edge8_Node000007_Node000003" title=" " alt="" coords="124,254,296,297,295,302,122,259"/>
+<area shape="poly" id="edge10_Node000008_Node000003" title=" " alt="" coords="342,107,361,289,356,289,337,107"/>
+<area shape="poly" id="edge22_Node000008_Node000004" title=" " alt="" coords="346,106,461,363,456,365,341,108"/>
+<area shape="poly" id="edge15_Node000008_Node000007" title=" " alt="" coords="289,110,232,129,173,157,131,188,96,220,92,216,127,184,170,152,230,124,288,105"/>
+<area shape="rect" id="Node000009" href="$numerics_8cuh.html" title="Small numeric helpers and constants (angles, tolerances, clamps)." alt="" coords="149,229,277,256"/>
+<area shape="poly" id="edge11_Node000008_Node000009" title=" " alt="" coords="336,108,318,143,291,183,247,222,244,218,287,180,313,140,331,106"/>
+<area shape="rect" id="Node000011" href="$ray_8cuh.html" title="Mathematical ray type for 3D space." alt="" coords="184,155,276,181"/>
+<area shape="poly" id="edge16_Node000008_Node000011" title=" " alt="" coords="321,109,263,148,260,143,318,105"/>
+<area shape="poly" id="edge19_Node000008_Node000012" title=" " alt="" coords="370,105,470,146,468,151,368,110"/>
+<area shape="poly" id="edge13_Node000009_Node000002" title=" " alt="" coords="190,259,112,299,110,294,187,254"/>
+<area shape="poly" id="edge12_Node000009_Node000003" title=" " alt="" coords="240,254,322,294,320,299,238,259"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="186,304,240,331"/>
+<area shape="poly" id="edge14_Node000009_Node000010" title=" " alt="" coords="216,257,216,288,210,288,210,257"/>
+<area shape="poly" id="edge18_Node000011_Node000003" title=" " alt="" coords="245,180,291,228,344,290,340,294,287,231,241,184"/>
+<area shape="poly" id="edge17_Node000011_Node000007" title=" " alt="" coords="204,184,115,225,113,220,202,179"/>
+<area shape="poly" id="edge21_Node000012_Node000003" title=" " alt="" coords="503,184,387,295,383,291,499,180"/>
+<area shape="poly" id="edge20_Node000012_Node000004" title=" " alt="" coords="515,182,488,331,480,364,475,363,482,330,510,181"/>
+</map>

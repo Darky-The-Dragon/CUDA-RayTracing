@@ -1,0 +1,15 @@
+<map id="colors.cuh" name="colors.cuh">
+<area shape="rect" id="Node000001" title="Centralized color helpers and presets for uchar3." alt="" coords="94,5,175,32"/>
+<area shape="rect" id="Node000002" href="$cpu__raytracer_8cuh.html" title="CPU&#45;only ray tracing entry point (reference implementation)." alt="" coords="5,80,131,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="115,45,81,81,78,78,111,42"/>
+<area shape="rect" id="Node000005" href="$defaults_8cuh.html" title="Default rendering settings shared by CPU and GPU paths." alt="" coords="155,80,248,107"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="158,42,192,78,188,81,155,45"/>
+<area shape="rect" id="Node000003" href="$cpu__raytracer_8cu.html" title="CPU reference renderer: matches GPU scene/light/shader for visual parity." alt="" coords="126,155,244,181"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="102,113,166,152,163,156,100,117"/>
+<area shape="rect" id="Node000004" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="34,155,102,181"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="71,122,71,154,65,154,65,122"/>
+<area shape="poly" id="edge5_Node000005_Node000003" title=" " alt="" coords="198,123,191,155,185,154,193,122"/>
+<area shape="poly" id="edge6_Node000005_Node000004" title=" " alt="" coords="166,117,93,156,90,152,164,112"/>
+<area shape="rect" id="Node000006" href="$raytracer_8cu.html" title="GPU primary&#45;ray kernel: shade one pixel per thread and write RGB." alt="" coords="268,155,358,181"/>
+<area shape="poly" id="edge7_Node000005_Node000006" title=" " alt="" coords="235,113,295,152,292,156,232,118"/>
+</map>

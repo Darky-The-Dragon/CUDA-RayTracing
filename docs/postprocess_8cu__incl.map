@@ -1,0 +1,26 @@
+<map id="postprocess.cu" name="postprocess.cu">
+<area shape="rect" id="Node000001" title="CPU &amp; GPU post&#45;processing (Gaussian blur, Bilateral filter)." alt="" coords="252,5,362,32"/>
+<area shape="rect" id="Node000002" href="$macros_8cuh.html" title="Project&#45;wide CUDA/host qualifiers and debug/guard macros." alt="" coords="14,155,133,181"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="252,26,216,31,177,42,139,58,106,82,88,109,79,140,74,138,83,107,102,78,136,54,175,37,214,26,251,20"/>
+<area shape="rect" id="Node000006" href="$numerics_8cuh.html" title="Small numeric helpers and constants (angles, tolerances, clamps)." alt="" coords="116,80,244,107"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="286,35,217,74,214,70,283,30"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="234,155,292,181"/>
+<area shape="poly" id="edge12_Node000001_Node000007" title=" " alt="" coords="306,33,274,140,268,139,301,32"/>
+<area shape="rect" id="Node000009" href="$postprocess_8cuh.html" title="CPU/GPU post&#45;processing filters (Gaussian, Bilateral)." alt="" coords="316,155,490,181"/>
+<area shape="poly" id="edge9_Node000001_Node000009" title=" " alt="" coords="316,31,360,105,386,141,381,144,355,108,311,34"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="370,80,430,107"/>
+<area shape="poly" id="edge11_Node000001_Node000010" title=" " alt="" coords="325,30,374,68,371,73,321,35"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="454,80,512,107"/>
+<area shape="poly" id="edge13_Node000001_Node000011" title=" " alt="" coords="338,30,441,72,439,77,336,35"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="258,229,369,256"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="116,179,257,222,256,227,115,184"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="5,229,62,256"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="69,183,50,217,45,214,64,181"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="85,229,144,256"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="83,181,103,215,98,217,78,183"/>
+<area shape="poly" id="edge6_Node000006_Node000002" title=" " alt="" coords="163,109,106,148,103,143,160,105"/>
+<area shape="poly" id="edge7_Node000006_Node000007" title=" " alt="" coords="196,105,239,142,235,146,193,109"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="156,155,210,181"/>
+<area shape="poly" id="edge8_Node000006_Node000008" title=" " alt="" coords="183,107,184,139,179,139,178,107"/>
+<area shape="poly" id="edge10_Node000009_Node000003" title=" " alt="" coords="389,184,342,221,339,217,386,180"/>
+</map>

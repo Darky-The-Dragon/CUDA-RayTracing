@@ -1,0 +1,7 @@
+<map id="Sphere" name="Sphere">
+<area shape="rect" id="Node000001" title="Sphere primitive with material." alt="" coords="41,104,103,131"/>
+<area shape="rect" id="Node000002" href="$struct_vec3.html" title="Basic 3D vector." alt="" coords="5,5,56,32"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="34,47,42,79,59,102,55,105,37,81,29,48"/>
+<area shape="rect" id="Node000003" href="$struct_material.html" title="Surface properties of a renderable object." alt="" coords="80,5,147,32"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="104,48,80,105,75,103,99,46"/>
+</map>

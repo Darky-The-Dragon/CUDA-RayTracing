@@ -1,0 +1,9 @@
+<map id="device_scene.cuh" name="device_scene.cuh">
+<area shape="rect" id="Node000001" title="GPU scene buffers in constant memory + lightweight accessor." alt="" coords="119,5,246,32"/>
+<area shape="rect" id="Node000002" href="$device__scene_8cu.html" title="Upload scene buffers and debug flags to device constant memory." alt="" coords="5,80,125,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="151,43,87,82,84,77,148,38"/>
+<area shape="rect" id="Node000003" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="149,80,216,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="185,48,185,80,180,80,180,48"/>
+<area shape="rect" id="Node000004" href="$raytracer_8cu.html" title="GPU primary&#45;ray kernel: shade one pixel per thread and write RGB." alt="" coords="240,80,330,107"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="214,39,269,77,265,82,211,44"/>
+</map>

@@ -1,0 +1,14 @@
+<map id="scene_config.cuh" name="scene_config.cuh">
+<area shape="rect" id="Node000001" title="Global configuration for active scenes and buffer limits." alt="" coords="15,5,138,32"/>
+<area shape="rect" id="Node000002" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="5,155,73,181"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="54,45,41,62,31,81,27,100,28,120,37,154,32,155,23,121,22,100,26,79,36,59,49,42"/>
+<area shape="rect" id="Node000003" href="$menu_8cu.html" title="Console menu to build a RuntimeConfig (y/n booleans, defaults on Enter)." alt="" coords="41,80,112,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="79,48,79,80,74,80,74,48"/>
+<area shape="rect" id="Node000004" href="$world__build_8cuh.html" title="Centralized scene assembly for CPU &amp; GPU renderers (host&#45;only)." alt="" coords="137,80,248,107"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="111,38,173,77,171,82,108,43"/>
+<area shape="poly" id="edge6_Node000004_Node000002" title=" " alt="" coords="153,116,67,156,65,152,151,111"/>
+<area shape="rect" id="Node000005" href="$cpu__raytracer_8cu.html" title="CPU reference renderer: matches GPU scene/light/shader for visual parity." alt="" coords="114,155,233,181"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="188,122,179,155,174,154,183,121"/>
+<area shape="rect" id="Node000006" href="$device__scene_8cu.html" title="Upload scene buffers and debug flags to device constant memory." alt="" coords="257,155,376,181"/>
+<area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="228,112,296,152,293,156,225,117"/>
+</map>

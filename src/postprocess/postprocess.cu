@@ -232,14 +232,6 @@ namespace {
     }
 } // namespace
 
-/**
- * @brief Run post-FX on CPU and (optionally) time it.
- * @param h_img   [in/out] Host buffer (uchar3).
- * @param width   Pixels.
- * @param height  Pixels.
- * @param p       Post-FX params (filter + knobs).
- * @param t       Optional timings out (milliseconds).
- */
 void PostFX::applyCPU(uchar3 *h_img, const int width, const int height,
                       const Params &p, Timings *t) {
     const auto t0 = std::chrono::high_resolution_clock::now();
@@ -471,17 +463,6 @@ __global__ void kBilateralNaive(const uchar4 * __restrict__ in, uchar4 * __restr
     }
 }
 
-/**
- * @brief Run post-FX on the GPU and (optionally) time it.
- * @param d_img  [in/out] Device buffer (uchar4 RGBA); kernels preserve A.
- * @param width  Pixels.
- * @param height Pixels.
- * @param p      Post-FX params (filter + knobs).
- * @param t      Optional timings out (milliseconds, cudaEvent based).
- * @param stream CUDA stream (default nullptr).
- * @note Gaussian: two passes with a temp buffer; bilateral: single pass then swap.
- *       I allocate/free d_tmp with cudaMallocAsync/cudaFreeAsync on the stream.
- */
 void PostFX::applyGPU(uchar4 *&d_img, const int width, const int height, const Params &p, Timings *t,
                       cudaStream_t stream) {
     if (p.filter == Filter::None) {

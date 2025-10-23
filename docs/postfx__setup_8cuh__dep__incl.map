@@ -1,0 +1,11 @@
+<map id="postfx_setup.cuh" name="postfx_setup.cuh">
+<area shape="rect" id="Node000001" title="Translate RuntimeConfig (UI/runtime) into canonical PostFX::Params." alt="" coords="34,5,156,32"/>
+<area shape="rect" id="Node000002" href="$main_8cu.html" title="Entry point: runs GPU + CPU renderers, saves images, prints timing." alt="" coords="5,155,73,181"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="61,43,41,60,27,81,22,100,24,119,35,153,30,155,19,120,17,99,22,79,37,57,57,39"/>
+<area shape="rect" id="Node000003" href="$perf__logging_8cu.html" title="Device query, run&#45;summary print, and CSV timing logging." alt="" coords="116,155,226,181"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="132,39,152,57,168,79,175,99,177,119,176,154,170,154,172,120,170,100,163,81,148,60,129,43"/>
+<area shape="rect" id="Node000004" href="$perf__logging_8cuh.html" title="GPU device info, run&#45;summary print, and CSV timing logging." alt="" coords="37,80,153,107"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="98,48,98,80,92,80,92,48"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="78,121,51,156,47,153,74,117"/>
+<area shape="poly" id="edge5_Node000004_Node000003" title=" " alt="" coords="121,116,160,152,156,156,117,119"/>
+</map>

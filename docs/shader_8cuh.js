@@ -1,0 +1,36 @@
+var shader_8cuh =
+[
+    [ "SceneGeom", "struct_scene_geom.html", "struct_scene_geom" ],
+    [ "Hit", "struct_hit.html", "struct_hit" ],
+    [ "detail::HitKind", "namespacedetail.html#a7835535a89ba8cfb6b9312d328c3397f", [
+      [ "detail::HitKind::None", "namespacedetail.html#a7835535a89ba8cfb6b9312d328c3397fa6adf97f83acf6453d4a6a4b1070f3754", null ],
+      [ "detail::HitKind::Quad", "namespacedetail.html#a7835535a89ba8cfb6b9312d328c3397fae9017664588010860a92ceb5f8fcb824", null ],
+      [ "detail::HitKind::Sphere", "namespacedetail.html#a7835535a89ba8cfb6b9312d328c3397fab7095f057db3fefa7325ad93a04e14fd", null ]
+    ] ],
+    [ "shade_defaults::ambient", "namespaceshade__defaults.html#a17a6da0c9d7378cdfa5fd6b7e2bcbf04", null ],
+    [ "detail::epsExit", "namespacedetail.html#a530ae6be759cb1dd0c28be19ec4a53e4", null ],
+    [ "detail::epsOrigin", "namespacedetail.html#aabe0ae44b7eaa8dcafc54981ee11ced5", null ],
+    [ "detail::farDist", "namespacedetail.html#a481db82057562d0867f669dde7ab65b4", null ],
+    [ "fresnelSchlick", "shader_8cuh.html#a3f05f5ab34b8b0a5ba7e003e043acb8f", null ],
+    [ "gammaEncode", "shader_8cuh.html#a459f11b084452806689f7b4f6dfd72ff", null ],
+    [ "isOccluded", "shader_8cuh.html#a1f5ca4506e2305ab39f6e2c3c34aa90b", null ],
+    [ "onb_from_n", "shader_8cuh.html#a1face80420237b825150c2267ae9d080", null ],
+    [ "rand01", "shader_8cuh.html#a0f404625ada7202a29ecab0054bdc152", null ],
+    [ "reflectDir", "shader_8cuh.html#a35a2fd46da85e42840176499d5948280", null ],
+    [ "refractDir", "shader_8cuh.html#a26a8adbcab0a748fc87b93ca1f9a4e97", null ],
+    [ "sampleDisk", "shader_8cuh.html#a1c92cea27175f205fb8ef66fdcdab57c", null ],
+    [ "sampleLight", "shader_8cuh.html#a8cf83146dce73bb5eafd2b216344684e", null ],
+    [ "shadeLambert", "shader_8cuh.html#a3f1d1729bee9f2383ab43f1301b7bef8", null ],
+    [ "shadeLambertAll", "shader_8cuh.html#a239b5be5773b80564d1f59cdd6c028c3", null ],
+    [ "shadeLambertSoftAll", "shader_8cuh.html#ac2316bd476e7c6007b57c05b6c11715d", null ],
+    [ "shadeLambertUnified", "shader_8cuh.html#a9c559e9ea38d4956717165fc47dec731", null ],
+    [ "shadeSurface", "shader_8cuh.html#a4d0e4040fba2f7552eece300a3f26d2b", null ],
+    [ "softShadowVisibility", "shader_8cuh.html#ae81a6d68ff7bdcb141080f53fa7a2795", null ],
+    [ "toFloat3", "shader_8cuh.html#adf6482092bfe5c4ac2f600a206ed7862", null ],
+    [ "toUChar3", "shader_8cuh.html#ab315e624685186495a09527e01af001d", null ],
+    [ "traceClosest", "shader_8cuh.html#a1c3ae5f5265ac42d73a3ab53e58c2ff0", null ],
+    [ "detail::traceClosestKind", "namespacedetail.html#aa1cdc40fc9d21ef2d1d5f8e40b8ef246", null ],
+    [ "detail::traceSphereEntryExit", "namespacedetail.html#a8fb5ef45894306cabbe28a1f303adbbe", null ],
+    [ "visibilityBentOneRefractor", "shader_8cuh.html#aaf79b36c5f216a55ef97d91d64f6c3d8", null ],
+    [ "wanghash", "shader_8cuh.html#aa0fd679847f2551fc6477eb89abceb80", null ]
+];

@@ -1,0 +1,13 @@
+<map id="vec3.cuh" name="vec3.cuh">
+<area shape="rect" id="Node000001" title="Basic 3D vector type for points, directions, and colors." alt="" coords="75,5,150,32"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="28,80,85,107"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="105,34,77,69,73,66,101,31"/>
+<area shape="rect" id="Node000003" href="$macros_8cuh.html" title="Project&#45;wide CUDA/host qualifiers and debug/guard macros." alt="" coords="109,80,228,107"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="124,31,152,66,148,69,120,34"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="5,155,116,181"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="151,109,94,148,91,143,148,105"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="140,155,197,181"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="171,107,171,139,166,139,166,107"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="220,155,280,181"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="184,105,226,142,223,146,181,109"/>
+</map>

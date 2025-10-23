@@ -24,18 +24,6 @@
 
 // Module: GPU primary raytracing kernel
 
-/**
- * @brief Shades one pixel per thread with Lambert + hard/soft shadows.
- * @param buffer     [out] RGBA8 image (uchar4 per pixel). Alpha is set to 255.
- * @param width      Render width in pixels.
- * @param height     Render height in pixels.
- * @param cam        Camera parameters (by value).
- * @param bg         Linear RGB background when no geometry is hit.
- * @param light      Scene light (by value).
- * @param frameSeed  Per-frame RNG seed (scrambled per-pixel).
- * @note Grid: (ceil(width/blk.x), ceil(height/blk.y)), Block: e.g., (16,16).
- * @note Scene geometry is read via getDeviceScene(), which views __constant__ buffers.
- */
 __global__ void raytrace(uchar4 * __restrict__ buffer, const int width, const int height, const Camera cam,
                          const Vec3 bg, const Light light, const uint32_t frameSeed) {
     // Thread → pixel
