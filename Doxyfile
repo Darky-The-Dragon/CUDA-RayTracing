@@ -22,7 +22,7 @@ PREDEFINED             = __host__= \
                          __CUDACC__=1
 
 # Output
-OUTPUT_DIRECTORY       = docs
+OUTPUT_DIRECTORY       = docs\html
 GENERATE_HTML          = YES
 HTML_OUTPUT            = .
 GENERATE_LATEX         = NO
