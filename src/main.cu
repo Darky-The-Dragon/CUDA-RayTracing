@@ -596,5 +596,13 @@ int main() {
     CUDA_GUARD(cudaFree(d_buffer));
     CUDA_GUARD(cudaStreamDestroy(stream));
     CUDA_GUARD(cudaDeviceReset());
+
+#ifdef _WIN32
+    system("pause");
+#else
+    std::cout << "Press ENTER to exit...";
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+#endif
     return 0;
+
 }
