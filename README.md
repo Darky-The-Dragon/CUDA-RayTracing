@@ -10,7 +10,7 @@ implemented efficiently from scratch using **CUDA C++**.
 
 ---
 
-## 🚀 Overview
+## Overview
 
 This project demonstrates how to harness **GPU parallelism** for **physically based image synthesis** using **NVIDIA
 CUDA**.
@@ -27,16 +27,16 @@ Key focus areas:
 
 ---
 
-## ✨ Core Features
+## Core Features
 
-### 🌗 Physically Inspired Rendering
+### Physically Inspired Rendering
 
 - **Lambertian diffuse lighting** with soft shadow visibility
 - **Recursive ray reflection** for mirror and glass materials
 - **Point and directional light sources**
 - **Energy-conserving BRDF** implementation (non-PBR, but consistent)
 
-### 🧩 Modular Scene System
+### Modular Scene System
 
 - Geometry primitives: **spheres**, **planes**, **quads**
 - Composable worlds built through scene masks (bitwise combination)
@@ -45,19 +45,19 @@ Key focus areas:
   - Test spheres (diffuse, mirror, refractive)
   - Box composition using reusable quad generators
 
-### ⚙️ Unified CPU & GPU Renderers
+### Unified CPU & GPU Renderers
 
 - Identical shading and geometry code paths for both backends
 - Supports runtime configuration (resolution, postFX, scene mask, etc.)
 - Simplified benchmarking: measure exact frame-time difference
 
-### 💡 Flexible Material System
+### Flexible Material System
 
 - Supports **diffuse**, **reflective**, and **refractive** materials
 - Adjustable refractive index and reflectivity coefficients
 - Shared material definitions through `Materials` namespace
 
-### 📘 Comprehensive Documentation
+### Comprehensive Documentation
 
 - Fully documented with **Doxygen** (HTML + diagrams)
 - Consistent docstrings across `.cuh` / `.cu` modules
@@ -66,7 +66,7 @@ Key focus areas:
   - Directory dependency graphs
   - Function parameter references and data flow
 
-### 🖼️ Output & Post-Processing
+### Output & Post-Processing
 
 - Export formats: **PPM** and **PNG**
 - Optional watermark overlay (CPU-side bitmap draw)
@@ -75,7 +75,7 @@ Key focus areas:
 
 ---
 
-## 🧩 Directory Structure
+## Directory Structure
 
 ```
 CUDA-RayTracing/
@@ -121,9 +121,9 @@ CUDA-RayTracing/
 
 ---
 
-## 🛠️ Build Instructions
+## Build Instructions
 
-### 🔧 Requirements
+### Requirements
 
 To build and run the CUDA Ray Tracer, ensure the following dependencies are installed and properly configured:
 
@@ -138,7 +138,7 @@ To build and run the CUDA Ray Tracer, ensure the following dependencies are inst
 
 ---
 
-### ✅ Verification Steps
+### Verification Steps
 
 After installation, verify that each dependency successfully installed and added itself in the system PATH by using a
 PowerShell or CMD prompt:
@@ -167,7 +167,7 @@ cmake --version
 dot -V
 ```
 
-### ⚙️ Project Installation Steps
+### Project Installation Steps
 
 #### 1. Clone the repository with submodules
 ```
@@ -207,7 +207,7 @@ output/png/
 ---
 
 
-## 📘 Documentation
+## Documentation
 
 Doxygen comments are embedded across all headers. To open the documentation go in CUDA-RayTracing/docs/html and open
 index.html in your default browse. To re-generate the full HTML documentation:
@@ -222,13 +222,13 @@ Output will appear in:
 docs/html/index.html
 ```
 
-## 📄 License
+## License
 
 This project is released under the [MIT License](LICENSE).
 
 ---
 
-## 👤 Author
+## Author
 
 **Zotea Dumitru**  
 Master’s student – *University of Milan (UNIMI)*  
